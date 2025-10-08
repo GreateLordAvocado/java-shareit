@@ -3,6 +3,7 @@ package ru.practicum.shareit.user.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import ru.practicum.shareit.exceptions.ConflictException;
 import ru.practicum.shareit.exceptions.NotFoundException;
 import ru.practicum.shareit.exceptions.ValidationException;
 import ru.practicum.shareit.user.dto.UserDto;
@@ -12,7 +13,6 @@ import ru.practicum.shareit.user.storage.UserRepository;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -29,12 +29,12 @@ public class UserServiceImpl implements UserService {
     public UserDto create(UserDto dto) {
         validateForCreate(dto);
 
-        String normalizedEmail = normalizeEmail(dto.getEmail());
-        dto.setEmail(normalizedEmail);
+        String cleanedEmail = cleanEmail(dto.getEmail());
+        dto.setEmail(cleanedEmail);
         dto.setName(dto.getName().trim());
 
-        if (repo.existsByEmail(normalizedEmail, null)) {
-            throw new ValidationException("Email уже используется: " + normalizedEmail);
+        if (repo.existsByEmail(cleanedEmail, null)) {
+            throw new ConflictException("Email уже используется: " + cleanedEmail);
         }
 
         User saved = repo.save(UserMapper.fromDto(dto));
@@ -59,12 +59,12 @@ public class UserServiceImpl implements UserService {
         }
 
         if (patch.getEmail() != null) {
-            String email = normalizeEmail(patch.getEmail());
+            String email = cleanEmail(patch.getEmail());
             if (!SIMPLE_EMAIL.matcher(email).matches()) {
                 throw new ValidationException("Некорректный email");
             }
             if (repo.existsByEmail(email, id)) {
-                throw new ValidationException("Email уже используется: " + email);
+                throw new ConflictException("Email уже используется: " + email);
             }
             existing.setEmail(email);
         }
@@ -102,13 +102,13 @@ public class UserServiceImpl implements UserService {
         if (!StringUtils.hasText(dto.getEmail())) {
             throw new ValidationException("Некорректный email");
         }
-        String email = normalizeEmail(dto.getEmail());
+        String email = cleanEmail(dto.getEmail());
         if (!SIMPLE_EMAIL.matcher(email).matches()) {
             throw new ValidationException("Некорректный email");
         }
     }
 
-    private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    private String cleanEmail(String email) {
+        return email == null ? null : email.trim();
     }
 }

@@ -59,7 +59,7 @@ class UserControllerTest {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(u2)))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isConflict()) // <-- было isBadRequest()
                 .andExpect(jsonPath("$.error", containsString("Email уже используется")));
     }
 
