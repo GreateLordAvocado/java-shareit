@@ -21,85 +21,87 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    // 400: бизнес-валидация
     @ExceptionHandler(ValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidation(ValidationException ex) {
-        log.debug("Validation error: {}", ex.getMessage());
+        log.warn("Validation error: {}", ex.getMessage());
         return new ErrorResponse(ex.getMessage());
     }
 
+    // 409: конфликт
     @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict(ConflictException ex) {
-        log.debug("Conflict: {}", ex.getMessage());
+        log.warn("Conflict: {}", ex.getMessage());
         return new ErrorResponse(ex.getMessage());
     }
 
+    // 404: не найдено
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleNotFound(NotFoundException ex) {
-        log.debug("Not found: {}", ex.getMessage());
+        log.warn("Not found: {}", ex.getMessage());
         return new ErrorResponse(ex.getMessage());
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    // 400: сгруппированные "плохие запросы" и ошибки валидации фреймворка
+    @ExceptionHandler({
+            MethodArgumentNotValidException.class,
+            ConstraintViolationException.class,
+            MissingRequestHeaderException.class,
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class
+    })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleBadBody(HttpMessageNotReadableException ex) {
-        log.debug("Bad request body", ex);
-        return new ErrorResponse("Некорректное тело запроса");
+    public ErrorResponse handleBadRequestExceptions(Exception ex) {
+        String msg;
+
+        if (ex instanceof HttpMessageNotReadableException) {
+            msg = "Некорректное тело запроса";
+        } else if (ex instanceof MethodArgumentNotValidException manv) {
+            msg = manv.getBindingResult().getFieldErrors().stream()
+                    .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                    .collect(Collectors.joining("; "));
+            msg = "Ошибка валидации: " + msg;
+        } else if (ex instanceof ConstraintViolationException cve) {
+            msg = cve.getConstraintViolations().stream()
+                    .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                    .collect(Collectors.joining("; "));
+            msg = "Ошибка валидации: " + msg;
+        } else if (ex instanceof MissingRequestHeaderException mrh) {
+            msg = "Отсутствует обязательный заголовок: " + mrh.getHeaderName();
+        } else if (ex instanceof MissingServletRequestParameterException msp) {
+            msg = "Отсутствует обязательный параметр: " + msp.getParameterName();
+        } else if (ex instanceof MethodArgumentTypeMismatchException mat) {
+            String name = mat.getName();
+            String required = mat.getRequiredType() != null
+                    ? mat.getRequiredType().getSimpleName()
+                    : "неизвестно";
+            msg = "Неверный формат параметра '" + name + "'. Ожидается: " + required;
+        } else {
+            msg = "Некорректный запрос";
+        }
+
+        log.warn("Bad request ({}): {}", ex.getClass().getSimpleName(), msg);
+        return new ErrorResponse(msg);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
-        String msg = ex.getBindingResult().getFieldErrors().stream()
-                .map(err -> err.getField() + ": " + err.getDefaultMessage())
-                .collect(Collectors.joining("; "));
-        log.debug("Validation failed: {}", msg);
-        return new ErrorResponse("Ошибка валидации: " + msg);
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleConstraintViolation(ConstraintViolationException ex) {
-        String msg = ex.getConstraintViolations().stream()
-                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
-                .collect(Collectors.joining("; "));
-        log.debug("Constraint violation: {}", msg);
-        return new ErrorResponse("Ошибка валидации: " + msg);
-    }
-
-    @ExceptionHandler(MissingRequestHeaderException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleMissingHeader(MissingRequestHeaderException ex) {
-        log.debug("Missing header: {}", ex.getHeaderName());
-        return new ErrorResponse("Отсутствует обязательный заголовок: " + ex.getHeaderName());
-    }
-
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleMissingParam(MissingServletRequestParameterException ex) {
-        log.debug("Missing request parameter: {}", ex.getParameterName());
-        return new ErrorResponse("Отсутствует обязательный параметр: " + ex.getParameterName());
-    }
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String name = ex.getName();
-        String required = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "неизвестно";
-        log.debug("Type mismatch for '{}': required {}", name, required);
-        return new ErrorResponse("Неверный формат параметра '" + name + "'. Ожидается: " + required);
-    }
-
+    // Прямые ResponseStatusException — сохраняем код статуса
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
         HttpStatusCode code = ex.getStatusCode();
         String msg = ex.getReason() != null ? ex.getReason() : "Ошибка запроса";
-        log.debug("ResponseStatusException {}: {}", code.value(), msg, ex);
+        if (code.is4xxClientError()) {
+            log.warn("ResponseStatusException {}: {}", code.value(), msg);
+        } else {
+            log.error("ResponseStatusException {}: {}", code.value(), msg, ex);
+        }
         return ResponseEntity.status(code).body(new ErrorResponse(msg));
     }
 
+    // 500: всё остальное
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleOther(Throwable ex) {

@@ -23,9 +23,6 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemDto create(Long ownerId, ItemDto dto) {
-        if (ownerId == null) {
-            throw new ValidationException("Требуется заголовок X-Sharer-User-Id");
-        }
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
         validateForCreate(dto);
@@ -38,14 +35,8 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemDto update(Long ownerId, Long itemId, ItemDto patch) {
-        if (ownerId == null) {
-            throw new ValidationException("Требуется заголовок X-Sharer-User-Id");
-        }
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
-        if (patch == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
 
         Item existing = repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
@@ -54,21 +45,27 @@ public class ItemServiceImpl implements ItemService {
             throw new NotFoundException("Редактировать вещь может только её владелец");
         }
 
-        if (patch.getName() != null) {
-            if (!StringUtils.hasText(patch.getName())) {
-                throw new ValidationException("Название вещи не должно быть пустым");
+        if (patch != null) {
+            if (patch.getName() != null) {
+                if (!StringUtils.hasText(patch.getName())) {
+                    throw new ValidationException("Название вещи не должно быть пустым");
+                }
+                existing.setName(patch.getName());
             }
-            existing.setName(patch.getName());
-        }
-        if (patch.getDescription() != null) {
-            if (!StringUtils.hasText(patch.getDescription())) {
-                throw new ValidationException("Описание вещи не должно быть пустым");
+            if (patch.getDescription() != null) {
+                if (!StringUtils.hasText(patch.getDescription())) {
+                    throw new ValidationException("Описание вещи не должно быть пустым");
+                }
+                existing.setDescription(patch.getDescription());
             }
-            existing.setDescription(patch.getDescription());
+            if (patch.getAvailable() != null) {
+                existing.setAvailable(patch.getAvailable());
+            }
+            if (patch.getRequestId() != null) {
+                existing.setRequestId(patch.getRequestId());
+            }
         }
-        if (patch.getAvailable() != null) {
-            existing.setAvailable(patch.getAvailable());
-        }
+
         return ItemMapper.toDto(repo.update(existing));
     }
 
@@ -90,14 +87,18 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public List<ItemDto> search(String text) {
-        if (!StringUtils.hasText(text)) return List.of();
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
         return repo.searchAvailableByText(text).stream()
                 .map(ItemMapper::toDto)
                 .collect(Collectors.toList());
     }
 
     private void validateForCreate(ItemDto dto) {
-        if (dto == null) throw new ValidationException("Тело запроса не должно быть пустым");
+        if (dto == null) {
+            throw new ValidationException("Тело запроса не должно быть пустым");
+        }
         if (!StringUtils.hasText(dto.getName())) {
             throw new ValidationException("Название вещи не должно быть пустым");
         }

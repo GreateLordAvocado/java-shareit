@@ -71,31 +71,43 @@ class ItemControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // --- Разбивка бывшего createItem_validationErrors на 3 отдельных теста ---
+
     @Test
-    void createItem_validationErrors() throws Exception {
+    void createItem_emptyName_returns400() throws Exception {
         long ownerId = createUser("Owner", "o@ex.com");
 
-        ItemDto bad1 = new ItemDto(null, "  ", "ok", true, null, null);
+        ItemDto bad = new ItemDto(null, "  ", "ok", true, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(bad1)))
+                        .content(om.writeValueAsString(bad)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error", containsString("Название вещи не должно быть пустым")));
+    }
 
-        ItemDto bad2 = new ItemDto(null, "ok", "   ", true, null, null);
+    @Test
+    void createItem_emptyDescription_returns400() throws Exception {
+        long ownerId = createUser("Owner", "o@ex.com");
+
+        ItemDto bad = new ItemDto(null, "ok", "   ", true, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(bad2)))
+                        .content(om.writeValueAsString(bad)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error", containsString("Описание вещи не должно быть пустым")));
+    }
 
-        ItemDto bad3 = new ItemDto(null, "ok", "ok", null, null, null);
+    @Test
+    void createItem_missingAvailable_returns400() throws Exception {
+        long ownerId = createUser("Owner", "o@ex.com");
+
+        ItemDto bad = new ItemDto(null, "ok", "ok", null, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(bad3)))
+                        .content(om.writeValueAsString(bad)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error", containsString("Поле доступности вещи")));
     }

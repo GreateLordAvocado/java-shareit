@@ -3,8 +3,11 @@ package ru.practicum.shareit.user.dto;
 import ru.practicum.shareit.user.model.User;
 
 public class UserMapper {
+
     public static UserDto toDto(User u) {
-        if (u == null) return null;
+        if (u == null) {
+            return null;
+        }
         return UserDto.builder()
                 .id(u.getId())
                 .name(u.getName())
@@ -13,7 +16,9 @@ public class UserMapper {
     }
 
     public static User fromDto(UserDto d) {
-        if (d == null) return null;
+        if (d == null) {
+            return null;
+        }
         return User.builder()
                 .id(d.getId())
                 .name(d.getName())

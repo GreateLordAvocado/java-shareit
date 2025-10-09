@@ -25,9 +25,6 @@ public class InMemoryItemRepository implements ItemRepository {
 
     @Override
     public Item update(Item item) {
-        if (!storage.containsKey(item.getId())) {
-            throw new NoSuchElementException("Вещь с id=" + item.getId() + " не найдена");
-        }
         storage.put(item.getId(), item);
         return item;
     }
@@ -47,16 +44,16 @@ public class InMemoryItemRepository implements ItemRepository {
 
     @Override
     public List<Item> searchAvailableByText(String text) {
-        if (!StringUtils.hasText(text)) return List.of();
-        final String q = text.toLowerCase(Locale.ROOT);
-
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        final String q = text.toLowerCase();
         return storage.values().stream()
                 .filter(i -> Boolean.TRUE.equals(i.getAvailable()))
-                .filter(i -> {
-                    String name = i.getName() == null ? "" : i.getName().toLowerCase(Locale.ROOT);
-                    String desc = i.getDescription() == null ? "" : i.getDescription().toLowerCase(Locale.ROOT);
-                    return name.contains(q) || desc.contains(q);
-                })
+                .filter(i ->
+                        (i.getName() != null && i.getName().toLowerCase().contains(q)) ||
+                                (i.getDescription() != null && i.getDescription().toLowerCase().contains(q))
+                )
                 .sorted(Comparator.comparing(Item::getId))
                 .collect(Collectors.toList());
     }
