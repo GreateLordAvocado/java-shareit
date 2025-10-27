@@ -2,17 +2,14 @@ package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.storage.BookingJpaRepository;
 import ru.practicum.shareit.exceptions.NotFoundException;
 import ru.practicum.shareit.exceptions.ValidationException;
-import ru.practicum.shareit.item.dto.CommentCreateDto;
-import ru.practicum.shareit.item.dto.CommentDto;
-import ru.practicum.shareit.item.dto.CommentMapper;
-import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemMapper;
+import ru.practicum.shareit.item.dto.*;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.storage.CommentJpaRepository;
@@ -30,11 +27,11 @@ public class ItemServiceImpl implements ItemService {
 
     private final ItemJpaRepository repo;
     private final UserRepository userRepo;
-
     private final CommentJpaRepository commentRepo;
     private final BookingJpaRepository bookingRepo;
 
     @Override
+    @Transactional
     public ItemDto create(Long ownerId, ItemDto dto) {
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
@@ -47,6 +44,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional
     public ItemDto update(Long ownerId, Long itemId, ItemDto patch) {
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
@@ -84,13 +82,14 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ItemDto getById(Long itemId) {
         Item item = repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
 
         ItemDto dto = ItemMapper.toDto(item);
 
-        var comments = commentRepo.findByItem_IdOrderByCreatedDesc(itemId).stream()
+        List<CommentDto> comments = commentRepo.findByItem_IdOrderByCreatedDesc(itemId).stream()
                 .map(CommentMapper::toDto)
                 .toList();
 
@@ -99,6 +98,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemDto> getByOwner(Long ownerId) {
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
@@ -144,6 +144,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemDto> search(String text) {
         if (!StringUtils.hasText(text)) {
             return List.of();
@@ -154,6 +155,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional
     public CommentDto addComment(Long userId, Long itemId, CommentCreateDto dto) {
         if (dto == null || !StringUtils.hasText(dto.getText())) {
             throw new ValidationException("Текст комментария не должен быть пустым");
