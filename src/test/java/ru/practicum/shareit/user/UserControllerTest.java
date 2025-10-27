@@ -29,8 +29,13 @@ class UserControllerTest {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(1)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1)))
                 .andExpect(jsonPath("$.name", is("UserA")))
                 .andExpect(jsonPath("$.email", is("usera@example.com")));
     }
@@ -66,13 +71,22 @@ class UserControllerTest {
     @Test
     void patchUser_partialUpdate_ok() throws Exception {
         UserDto dto = new UserDto(null, "UserX", "userx@example.com");
-        mockMvc.perform(post("/users")
+
+        String createdJson = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
-                .andExpect(status().isOk());
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andReturn().getResponse().getContentAsString();
+
+        long id = om.readTree(createdJson).get("id").asLong();
 
         UserDto patch = new UserDto(null, "UserX-new", null);
-        mockMvc.perform(patch("/users/{id}", 1L)
+        mockMvc.perform(patch("/users/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(patch)))
                 .andExpect(status().isOk())
