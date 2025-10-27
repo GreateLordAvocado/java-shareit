@@ -1,22 +1,32 @@
 package ru.practicum.shareit.booking.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
 
-import java.time.LocalDateTime;
-
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
-@Table(name = "bookings",
-        indexes = {
-                @Index(name = "idx_bookings_item", columnList = "item_id"),
-                @Index(name = "idx_bookings_booker", columnList = "booker_id"),
-                @Index(name = "idx_bookings_period", columnList = "start_time, end_time"),
-                @Index(name = "idx_bookings_status", columnList = "status")
-        })
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-@EqualsAndHashCode(of = "id")
+@Table(name = "bookings")
 public class Booking {
 
     @Id
@@ -29,17 +39,15 @@ public class Booking {
     @Column(name = "end_time", nullable = false)
     private LocalDateTime end;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "item_id", nullable = false,
-            foreignKey = @ForeignKey(name = "fk_booking_item"))
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_id", nullable = false)
     private Item item;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booker_id", nullable = false,
-            foreignKey = @ForeignKey(name = "fk_booking_booker"))
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booker_id", nullable = false)
     private User booker;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
+    @Column(name = "status", nullable = false, length = 16)
     private BookingStatus status;
 }
