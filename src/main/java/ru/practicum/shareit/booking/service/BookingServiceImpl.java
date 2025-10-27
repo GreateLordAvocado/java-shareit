@@ -10,6 +10,7 @@ import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.storage.BookingJpaRepository;
+import ru.practicum.shareit.exceptions.ForbiddenException;
 import ru.practicum.shareit.exceptions.NotFoundException;
 import ru.practicum.shareit.exceptions.ValidationException;
 import ru.practicum.shareit.item.model.Item;
@@ -82,7 +83,7 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено: " + bookingId));
 
         if (booking.getItem() == null || !ownerId.equals(booking.getItem().getOwnerId())) {
-            throw new NotFoundException("Подтверждать/отклонять может только владелец вещи");
+            throw new ForbiddenException("Подтверждать/отклонять может только владелец вещи");
         }
         if (booking.getStatus() == BookingStatus.APPROVED && approved) {
             throw new ValidationException("Бронирование уже подтверждено");

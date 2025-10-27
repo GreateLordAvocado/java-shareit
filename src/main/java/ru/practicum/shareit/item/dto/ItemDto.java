@@ -1,11 +1,13 @@
 package ru.practicum.shareit.item.dto;
 
-import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -22,9 +24,21 @@ public class ItemDto {
     private BookingShortDto lastBooking;
     private BookingShortDto nextBooking;
 
+    private List<CommentDto> comments;
+
+    public ItemDto(Long id,
+                   String name,
+                   String description,
+                   Boolean available,
+                   Long ownerId,
+                   Long requestId,
+                   BookingShortDto lastBooking,
+                   BookingShortDto nextBooking) {
+        this(id, name, description, available, ownerId, requestId, lastBooking, nextBooking, List.of());
+    }
+
     @Getter
     @Setter
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class BookingShortDto {

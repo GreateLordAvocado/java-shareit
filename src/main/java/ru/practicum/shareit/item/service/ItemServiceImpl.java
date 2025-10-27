@@ -85,9 +85,17 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemDto getById(Long itemId) {
-        return repo.findById(itemId)
-                .map(ItemMapper::toDto)
+        Item item = repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
+
+        ItemDto dto = ItemMapper.toDto(item);
+
+        var comments = commentRepo.findByItem_IdOrderByCreatedDesc(itemId).stream()
+                .map(CommentMapper::toDto)
+                .toList();
+
+        dto.setComments(comments);
+        return dto;
     }
 
     @Override
