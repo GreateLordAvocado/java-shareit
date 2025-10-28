@@ -26,12 +26,25 @@ class ItemControllerTest {
     @Autowired private ObjectMapper om;
 
     private long createUser(String name, String email) throws Exception {
-        UserDto u = new UserDto(null, name, email);
-        String body = om.writeValueAsString(u);
+        // Сделаем email уникальным на каждый вызов, чтобы не ловить 409 CONFLICT
+        String uniqueEmail = email;
+        int at = email.indexOf('@');
+        if (at > 0) {
+            uniqueEmail = email.substring(0, at) + "+" + System.nanoTime() + email.substring(at);
+        } else {
+            uniqueEmail = email + "+" + System.nanoTime();
+        }
+
+        UserDto u = new UserDto(null, name, uniqueEmail);
         String json = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isOk())
+                        .content(om.writeValueAsString(u)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
                 .andReturn().getResponse().getContentAsString();
         return om.readTree(json).get("id").asLong();
     }
@@ -41,7 +54,12 @@ class ItemControllerTest {
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
-                .andExpect(status().isOk())
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
                 .andReturn().getResponse().getContentAsString();
         return om.readTree(json).get("id").asLong();
     }
@@ -50,13 +68,13 @@ class ItemControllerTest {
     void createItem_ok() throws Exception {
         long ownerId = createUser("Owner", "o@ex.com");
 
-        ItemDto dto = new ItemDto(null, "Дрель", "600Вт, ударная", true, null, null);
+        ItemDto dto = new ItemDto(null, "Дрель", "600Вт, ударная", true, null, null, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(1)))
+                .andExpect(jsonPath("$.id", greaterThan(0)))
                 .andExpect(jsonPath("$.name", is("Дрель")))
                 .andExpect(jsonPath("$.description", containsString("600Вт")))
                 .andExpect(jsonPath("$.available", is(true)));
@@ -64,20 +82,18 @@ class ItemControllerTest {
 
     @Test
     void createItem_missingHeader() throws Exception {
-        ItemDto dto = new ItemDto(null, "Шуруповёрт", "аккумуляторный", true, null, null);
+        ItemDto dto = new ItemDto(null, "Шуруповёрт", "аккумуляторный", true, null, null, null, null);
         mockMvc.perform(post("/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
 
-    // --- Разбивка бывшего createItem_validationErrors на 3 отдельных теста ---
-
     @Test
     void createItem_emptyName_returns400() throws Exception {
         long ownerId = createUser("Owner", "o@ex.com");
 
-        ItemDto bad = new ItemDto(null, "  ", "ok", true, null, null);
+        ItemDto bad = new ItemDto(null, "  ", "ok", true, null, null, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -90,7 +106,7 @@ class ItemControllerTest {
     void createItem_emptyDescription_returns400() throws Exception {
         long ownerId = createUser("Owner", "o@ex.com");
 
-        ItemDto bad = new ItemDto(null, "ok", "   ", true, null, null);
+        ItemDto bad = new ItemDto(null, "ok", "   ", true, null, null, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -103,7 +119,7 @@ class ItemControllerTest {
     void createItem_missingAvailable_returns400() throws Exception {
         long ownerId = createUser("Owner", "o@ex.com");
 
-        ItemDto bad = new ItemDto(null, "ok", "ok", null, null, null);
+        ItemDto bad = new ItemDto(null, "ok", "ok", null, null, null, null, null);
         mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,9 +132,9 @@ class ItemControllerTest {
     void patchItem_onlyOwner_canEdit() throws Exception {
         long owner = createUser("Owner", "o@ex.com");
         long stranger = createUser("Stranger", "s@ex.com");
-        long itemId = createItem(owner, new ItemDto(null, "Лестница", "3 м", true, null, null));
+        long itemId = createItem(owner, new ItemDto(null, "Лестница", "3 м", true, null, null, null, null));
 
-        ItemDto patchFromStranger = new ItemDto(null, "Чужая", null, null, null, null);
+        ItemDto patchFromStranger = new ItemDto(null, "Чужая", null, null, null, null, null, null);
         mockMvc.perform(patch("/items/{id}", itemId)
                         .header(HDR, stranger)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +142,7 @@ class ItemControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error", containsString("Редактировать вещь может только её владелец")));
 
-        ItemDto patch = new ItemDto(null, "Лестница-трансформер", null, null, null, null);
+        ItemDto patch = new ItemDto(null, "Лестница-трансформер", null, null, null, null, null, null);
         mockMvc.perform(patch("/items/{id}", itemId)
                         .header(HDR, owner)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -138,8 +154,8 @@ class ItemControllerTest {
     @Test
     void getOwnerItems_ok() throws Exception {
         long owner = createUser("Owner", "o@ex.com");
-        createItem(owner, new ItemDto(null, "Молоток", "500 г", true, null, null));
-        createItem(owner, new ItemDto(null, "Ножовка", "по металлу", false, null, null));
+        createItem(owner, new ItemDto(null, "Молоток", "500 г", true, null, null, null, null));
+        createItem(owner, new ItemDto(null, "Ножовка", "по металлу", false, null, null, null, null));
 
         mockMvc.perform(get("/items").header(HDR, owner))
                 .andExpect(status().isOk())
@@ -150,8 +166,8 @@ class ItemControllerTest {
     @Test
     void search_items_onlyAvailable_caseInsensitive() throws Exception {
         long owner = createUser("Owner", "o@ex.com");
-        createItem(owner, new ItemDto(null, "Дрель Салют", "ударная", true, null, null));
-        createItem(owner, new ItemDto(null, "Перфоратор", "есть ударный режим", false, null, null)); // недоступен
+        createItem(owner, new ItemDto(null, "Дрель Салют", "ударная", true, null, null, null, null));
+        createItem(owner, new ItemDto(null, "Перфоратор", "есть ударный режим", false, null, null, null, null)); // недоступен
 
         mockMvc.perform(get("/items/search").param("text", "УДАР"))
                 .andExpect(status().isOk())

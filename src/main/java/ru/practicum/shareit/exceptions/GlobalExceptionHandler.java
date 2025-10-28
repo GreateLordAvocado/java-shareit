@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -107,5 +108,12 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleOther(Throwable ex) {
         log.error("Unexpected error", ex);
         return new ErrorResponse("Внутренняя ошибка сервера");
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, String> handleForbidden(ForbiddenException ex) {
+        log.warn("Forbidden: {}", ex.getMessage());
+        return Map.of("error", ex.getMessage());
     }
 }
