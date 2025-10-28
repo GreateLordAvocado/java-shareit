@@ -7,7 +7,9 @@ import ru.practicum.shareit.booking.dto.BookingCreateRequest;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
+import ru.practicum.shareit.exceptions.ValidationException;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
 @Slf4j
@@ -22,8 +24,22 @@ public class BookingController {
 
     @PostMapping
     public BookingDto create(@RequestHeader(HDR) Long userId,
-                             @RequestBody BookingCreateRequest dto) {
+                             @Valid @RequestBody BookingCreateRequest dto) {
         log.debug("POST /bookings userId={}, body={}", userId, dto);
+
+        if (dto == null) {
+            throw new ValidationException("Тело запроса не должно быть пустым");
+        }
+        if (dto.itemId() == null) {
+            throw new ValidationException("Не указан itemId");
+        }
+        if (dto.start() == null || dto.end() == null) {
+            throw new ValidationException("Должны быть указаны даты начала и конца");
+        }
+        if (!dto.end().isAfter(dto.start())) {
+            throw new ValidationException("Дата окончания должна быть позже даты начала");
+        }
+
         return service.create(userId, dto);
     }
 

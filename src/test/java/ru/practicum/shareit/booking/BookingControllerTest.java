@@ -50,10 +50,7 @@ class BookingControllerTest {
     }
 
     private long createBooking(long bookerId, long itemId, LocalDateTime start, LocalDateTime end) throws Exception {
-        var req = new BookingCreateRequest();
-        req.setItemId(itemId);
-        req.setStart(start);
-        req.setEnd(end);
+        var req = new BookingCreateRequest(itemId, start, end);
 
         String json = mockMvc.perform(post("/bookings")
                         .header(HDR, bookerId)

@@ -11,7 +11,9 @@ public enum BookingState {
     REJECTED;
 
     public static BookingState from(String raw) {
-        if (raw == null || raw.isBlank()) return ALL;
+        if (raw == null || raw.isBlank()) {
+            return ALL;
+        }
         try {
             return BookingState.valueOf(raw.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {

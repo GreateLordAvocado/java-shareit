@@ -34,24 +34,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingDto create(Long userId, BookingCreateRequest dto) {
-        if (dto == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
-        if (dto.getItemId() == null) {
-            throw new ValidationException("Не указан itemId");
-        }
-        if (dto.getStart() == null || dto.getEnd() == null) {
-            throw new ValidationException("Должны быть указаны даты начала и конца");
-        }
-        if (!dto.getEnd().isAfter(dto.getStart())) {
-            throw new ValidationException("Дата окончания должна быть позже даты начала");
-        }
 
         User booker = userRepo.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + userId));
 
-        Item item = itemRepo.findById(dto.getItemId())
-                .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + dto.getItemId()));
+        Item item = itemRepo.findById(dto.itemId())
+                .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + dto.itemId()));
 
         if (item.getOwnerId() != null && item.getOwnerId().equals(userId)) {
             throw new NotFoundException("Нельзя бронировать свою вещь");
@@ -59,7 +47,8 @@ public class BookingServiceImpl implements BookingService {
         if (Boolean.FALSE.equals(item.getAvailable())) {
             throw new ValidationException("Вещь недоступна для бронирования");
         }
-        boolean overlap = bookingRepo.hasApprovedOverlap(item.getId(), dto.getStart(), dto.getEnd());
+
+        boolean overlap = bookingRepo.hasApprovedOverlap(item.getId(), dto.start(), dto.end());
         if (overlap) {
             throw new ValidationException("В указанный период вещь уже забронирована");
         }
@@ -67,8 +56,8 @@ public class BookingServiceImpl implements BookingService {
         Booking toSave = Booking.builder()
                 .item(item)
                 .booker(booker)
-                .start(dto.getStart())
-                .end(dto.getEnd())
+                .start(dto.start())
+                .end(dto.end())
                 .status(BookingStatus.WAITING)
                 .build();
 

@@ -1,12 +1,17 @@
 package ru.practicum.shareit.booking.dto;
 
-import lombok.Data;
+import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 
-@Data
-public class BookingCreateRequest {
-    private Long itemId;
-    private LocalDateTime start;
-    private LocalDateTime end;
+public record BookingCreateRequest(
+        @NotNull Long itemId,
+        @NotNull LocalDateTime start,
+        @NotNull LocalDateTime end
+) {
+    public BookingCreateRequest {
+        if (start != null && end != null && !end.isAfter(start)) {
+            throw new IllegalArgumentException("Дата окончания должна быть позже даты начала");
+        }
+    }
 }
