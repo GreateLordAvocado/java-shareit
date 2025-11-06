@@ -31,4 +31,17 @@ public class ItemMapper {
                 .requestId(d.getRequestId())
                 .build();
     }
+
+    public static ItemDto withBooking(ItemDto base, ItemDto.BookingShortDto last, ItemDto.BookingShortDto next) {
+        return ItemDto.builder()
+                .id(base.getId())
+                .name(base.getName())
+                .description(base.getDescription())
+                .available(base.getAvailable())
+                .ownerId(base.getOwnerId())
+                .requestId(base.getRequestId())
+                .lastBooking(last)
+                .nextBooking(next)
+                .build();
+    }
 }

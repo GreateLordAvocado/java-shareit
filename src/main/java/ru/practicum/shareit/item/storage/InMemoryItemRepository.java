@@ -1,5 +1,6 @@
 package ru.practicum.shareit.item.storage;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 import ru.practicum.shareit.item.model.Item;
@@ -9,7 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-@Repository
+@Repository("inMemoryItemRepository")
+@Profile("mem")
 public class InMemoryItemRepository implements ItemRepository {
 
     private final Map<Long, Item> storage = new ConcurrentHashMap<>();
