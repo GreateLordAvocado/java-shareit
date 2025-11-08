@@ -1,0 +1,133 @@
+package ru.practicum.shareit.user;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.user.dto.UserDto;
+
+import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Transactional
+class UserControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper om;
+
+    @Test
+    void createUser_ok() throws Exception {
+        UserDto dto = new UserDto(null, "UserA", "usera@example.com");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(dto)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.name", is("UserA")))
+                .andExpect(jsonPath("$.email", is("usera@example.com")));
+    }
+
+    @Test
+    void createUser_invalidEmail() throws Exception {
+        UserDto dto = new UserDto(null, "UserB", "bad-email");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("Некорректный email")));
+    }
+
+    @Test
+    void createUser_duplicateEmail() throws Exception {
+        UserDto u1 = new UserDto(null, "UserA1", "dup@example.com");
+        UserDto u2 = new UserDto(null, "UserB1", "dup@example.com");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(u1)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                });
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(u2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", containsString("Email уже используется")));
+    }
+
+    @Test
+    void patchUser_partialUpdate_ok() throws Exception {
+        UserDto dto = new UserDto(null, "UserX", "userx@example.com");
+
+        String createdJson = mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(dto)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andReturn().getResponse().getContentAsString();
+
+        long id = om.readTree(createdJson).get("id").asLong();
+
+        UserDto patch = new UserDto(null, "UserX-new", null);
+        mockMvc.perform(patch("/users/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(patch)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("UserX-new")))
+                .andExpect(jsonPath("$.email", is("userx@example.com")));
+    }
+
+    @Test
+    void getUser_notFound() throws Exception {
+        mockMvc.perform(get("/users/{id}", 42L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", containsString("Пользователь не найден")));
+    }
+
+    @Test
+    void deleteUser_ok() throws Exception {
+        UserDto dto = new UserDto(null, "UserDel", "userdel@example.com");
+        String createdJson = mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(dto)))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andReturn().getResponse().getContentAsString();
+
+        long id = om.readTree(createdJson).get("id").asLong();
+
+        mockMvc.perform(delete("/users/{id}", id))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/users/{id}", id))
+                .andExpect(status().isNotFound());
+    }
+}
