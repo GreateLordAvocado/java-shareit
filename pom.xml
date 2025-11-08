@@ -38,7 +38,7 @@
 	<build>
 		<pluginManagement>
 			<plugins>
-				<!-- добавили версию плагина Boot -->
+				<!-- фиксируем версию плагина Boot, чтобы не было warning’ов -->
 				<plugin>
 					<groupId>org.springframework.boot</groupId>
 					<artifactId>spring-boot-maven-plugin</artifactId>
