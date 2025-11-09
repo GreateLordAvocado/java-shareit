@@ -26,4 +26,11 @@ public class ItemRequest {
 
     @Column(nullable = false)
     private LocalDateTime created;
+
+    @PrePersist
+    private void prePersist() {
+        if (created == null) {
+            created = LocalDateTime.now();
+        }
+    }
 }

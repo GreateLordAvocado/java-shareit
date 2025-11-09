@@ -3,7 +3,6 @@ package ru.practicum.shareit.request.dto;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.request.model.ItemRequest;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +10,10 @@ import java.util.stream.Collectors;
 
 public class ItemRequestMapper {
 
-    public static ItemRequest toEntity(Long requesterId, String description, LocalDateTime now) {
+    public static ItemRequest toEntity(Long requesterId, String description) {
         return ItemRequest.builder()
-                .description(description)
+                .description(description == null ? null : description.trim())
                 .requesterId(requesterId)
-                .created(now)
                 .build();
     }
 
@@ -24,10 +22,8 @@ public class ItemRequestMapper {
                 .id(entity.getId())
                 .description(entity.getDescription())
                 .created(entity.getCreated())
-                .items(answers == null ? List.of() :
-                        answers.stream()
-                                .map(ItemRequestMapper::toAnswer)
-                                .toList())
+                .items(answers == null ? List.of()
+                        : answers.stream().map(ItemRequestMapper::toAnswer).toList())
                 .build();
     }
 
@@ -39,6 +35,7 @@ public class ItemRequestMapper {
     }
 
     public static Map<Long, List<Item>> groupByRequestId(List<Item> items) {
+        if (items == null || items.isEmpty()) return Map.of();
         return items.stream()
                 .collect(Collectors.groupingBy(
                         Item::getRequestId,

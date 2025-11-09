@@ -18,7 +18,6 @@ import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.request.storage.ItemRequestRepository;
 import ru.practicum.shareit.user.storage.UserRepository;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -36,14 +35,14 @@ public class ItemRequestServiceImpl implements ItemRequestService {
     public ItemRequestDto create(Long userId, ItemRequestCreateDto dto) {
         requireUser(userId);
 
-        String description = (dto == null) ? null : dto.getDescription();
+        String description = dto == null ? null : dto.getDescription();
         if (!StringUtils.hasText(description)) {
             throw new ValidationException("Описание запроса не должно быть пустым");
         }
         description = description.trim();
 
-        ItemRequest toSave = ItemRequestMapper.toEntity(userId, description, LocalDateTime.now());
-        ItemRequest saved  = requestRepo.save(toSave);
+        ItemRequest toSave = ItemRequestMapper.toEntity(userId, description);
+        ItemRequest saved = requestRepo.save(toSave);
 
         List<Item> answers = itemRepo.findByRequestId(saved.getId());
         return ItemRequestMapper.toDto(saved, answers);
@@ -61,9 +60,9 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         return requests.stream()
                 .map(r -> ItemRequestMapper.toDto(
                         r,
-                        answersByRequest.getOrDefault(r.getId(), Collections.<Item>emptyList())
+                        answersByRequest.getOrDefault(r.getId(), Collections.emptyList())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -77,7 +76,9 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         Sort sort = Sort.by(Sort.Direction.DESC, "created");
         Pageable page = PageRequest.of(from / size, size, sort);
 
-        List<ItemRequest> requests = requestRepo.findByRequesterIdNot(userId, page).getContent();
+        List<ItemRequest> requests =
+                requestRepo.findByRequesterIdNotOrderByCreatedDesc(userId, page).getContent();
+
         if (requests.isEmpty()) return Collections.emptyList();
 
         Map<Long, List<Item>> answersByRequest = loadAnswersGrouped(requests);
@@ -85,9 +86,9 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         return requests.stream()
                 .map(r -> ItemRequestMapper.toDto(
                         r,
-                        answersByRequest.getOrDefault(r.getId(), Collections.<Item>emptyList())
+                        answersByRequest.getOrDefault(r.getId(), Collections.emptyList())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -101,16 +102,14 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         return ItemRequestMapper.toDto(request, answers);
     }
 
-    // ===== Helpers =====
-
     private void requireUser(Long userId) {
-        userRepo.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден: " + userId));
+        userRepo.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + userId));
     }
 
     private Map<Long, List<Item>> loadAnswersGrouped(List<ItemRequest> requests) {
-        List<Long> ids = requests.stream()
-                .map(ItemRequest::getId)
-                .collect(Collectors.toList());
+        List<Long> ids = requests.stream().map(ItemRequest::getId).toList();
+        if (ids.isEmpty()) return Map.of();
 
         List<Item> allAnswers = itemRepo.findByRequestIdInOrderByIdAsc(ids);
 

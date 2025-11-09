@@ -1,5 +1,6 @@
 package ru.practicum.shareit.booking;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +11,6 @@ import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.exceptions.ValidationException;
 
-import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -49,7 +49,13 @@ public class BookingController {
                               @PathVariable Long bookingId,
                               @RequestParam("approved") boolean approved) {
         log.debug("PATCH /bookings/{} ownerId={}, approved={}", bookingId, ownerId, approved);
-        return service.approve(ownerId, bookingId, approved);
+
+        try {
+            return service.approve(ownerId, bookingId, approved);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new ValidationException(e.getMessage() != null ? e.getMessage()
+                    : "Некорректный запрос");
+        }
     }
 
     @GetMapping("/{bookingId}")

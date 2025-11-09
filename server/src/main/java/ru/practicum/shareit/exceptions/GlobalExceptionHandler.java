@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -101,12 +102,26 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, req, message);
     }
 
+    @ExceptionHandler(jakarta.validation.ValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleFrameworkValidation(jakarta.validation.ValidationException ex,
+                                                                         HttpServletRequest req) {
+        log.warn("Bean Validation error: {}", ex.getMessage());
+        return body(HttpStatus.BAD_REQUEST, req, ex.getMessage());
+    }
+
+    @ExceptionHandler({ IllegalArgumentException.class, NoSuchElementException.class })
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(RuntimeException ex, HttpServletRequest req) {
+        log.warn("Bad request ({}): {}", ex.getClass().getSimpleName(), ex.getMessage());
+        String msg = (ex.getMessage() == null || ex.getMessage().isBlank())
+                ? "Некорректный запрос" : ex.getMessage();
+        return body(HttpStatus.BAD_REQUEST, req, msg);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex,
                                                                    HttpServletRequest req) {
         String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
         log.warn("Data integrity violation: {}", msg);
-        // Можно отдать нейтральное сообщение, чтобы не светить SQL-детали:
         return body(HttpStatus.CONFLICT, req, "Нарушение целостности данных");
     }
 
