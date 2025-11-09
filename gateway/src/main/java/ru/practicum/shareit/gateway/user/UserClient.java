@@ -11,7 +11,7 @@ public class UserClient extends BaseClient {
 
     public UserClient(RestTemplateBuilder builder,
                       @Value("${shareit-server.url:http://localhost:9090}") String server) {
-        super(builder.build(), server);
+        super(builder, server);
     }
 
     public ResponseEntity<String> create(Object body) {
