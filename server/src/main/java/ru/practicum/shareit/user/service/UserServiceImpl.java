@@ -1,6 +1,7 @@
 package ru.practicum.shareit.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +44,12 @@ public class UserServiceImpl implements UserService {
                 .email(email)
                 .build();
 
-        User saved = users.save(toSave);
-        return UserMapper.toDto(saved);
+        try {
+            User saved = users.save(toSave);
+            return UserMapper.toDto(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("Email уже используется: " + email);
+        }
     }
 
     @Override
@@ -88,8 +93,12 @@ public class UserServiceImpl implements UserService {
             return UserMapper.toDto(existing);
         }
 
-        User saved = users.save(existing);
-        return UserMapper.toDto(saved);
+        try {
+            User saved = users.save(existing);
+            return UserMapper.toDto(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("Email уже используется: " + existing.getEmail());
+        }
     }
 
     @Override

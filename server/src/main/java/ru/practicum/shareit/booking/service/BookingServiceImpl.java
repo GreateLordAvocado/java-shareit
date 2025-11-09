@@ -100,16 +100,21 @@ public class BookingServiceImpl implements BookingService {
         if (!ownerId.equals(item.getOwnerId())) {
             throw new ForbiddenException("Подтверждать/отклонять может только владелец вещи");
         }
+
+        if (booking.getStatus() == BookingStatus.APPROVED && approved) {
+            throw new ValidationException("Бронирование уже подтверждено");
+        }
+        if (booking.getStatus() == BookingStatus.REJECTED && !approved) {
+            throw new ValidationException("Бронирование уже отклонено");
+        }
         if (booking.getStatus() != BookingStatus.WAITING) {
             throw new ValidationException("Статус бронирования уже изменён");
         }
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
-        bookingRepo.save(booking);
+        Booking saved = bookingRepo.save(booking);
 
-        Booking reloaded = bookingRepo.findById(booking.getId())
-                .orElseThrow(() -> new NotFoundException("Бронирование не найдено после сохранения: " + bookingId));
-        return BookingMapper.toDto(reloaded);
+        return BookingMapper.toDto(saved);
     }
 
     @Override
