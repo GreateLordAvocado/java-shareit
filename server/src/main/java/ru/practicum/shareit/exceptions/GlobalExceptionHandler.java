@@ -1,20 +1,22 @@
 package ru.practicum.shareit.exceptions;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -22,31 +24,45 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    // 400: бизнес-валидация
+    private ResponseEntity<Map<String, Object>> body(HttpStatus status, HttpServletRequest req) {
+        return body(status, req, status.getReasonPhrase());
+    }
+
+    private ResponseEntity<Map<String, Object>> body(HttpStatus status,
+                                                     HttpServletRequest req,
+                                                     String message) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("timestamp", OffsetDateTime.now().toString());
+        m.put("status", status.value());
+        m.put("error", message != null ? message : status.getReasonPhrase());
+        m.put("path", req.getRequestURI());
+        return ResponseEntity.status(status).body(m);
+    }
+
     @ExceptionHandler(ValidationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleValidation(ValidationException ex) {
+    public ResponseEntity<Map<String, Object>> handleValidation(ValidationException ex, HttpServletRequest req) {
         log.warn("Validation error: {}", ex.getMessage());
-        return new ErrorResponse(ex.getMessage());
+        return body(HttpStatus.BAD_REQUEST, req, ex.getMessage());
     }
 
-    // 409: конфликт
     @ExceptionHandler(ConflictException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleConflict(ConflictException ex) {
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex, HttpServletRequest req) {
         log.warn("Conflict: {}", ex.getMessage());
-        return new ErrorResponse(ex.getMessage());
+        return body(HttpStatus.CONFLICT, req, ex.getMessage());
     }
 
-    // 404: не найдено
     @ExceptionHandler(NotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleNotFound(NotFoundException ex) {
+    public ResponseEntity<Map<String, Object>> handleNotFound(NotFoundException ex, HttpServletRequest req) {
         log.warn("Not found: {}", ex.getMessage());
-        return new ErrorResponse(ex.getMessage());
+        return body(HttpStatus.NOT_FOUND, req, ex.getMessage());
     }
 
-    // 400: сгруппированные "плохие запросы" и ошибки валидации фреймворка
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenException ex, HttpServletRequest req) {
+        log.warn("Forbidden: {}", ex.getMessage());
+        return body(HttpStatus.FORBIDDEN, req, ex.getMessage());
+    }
+
     @ExceptionHandler({
             MethodArgumentNotValidException.class,
             ConstraintViolationException.class,
@@ -55,70 +71,62 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class
     })
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleBadRequestExceptions(Exception ex) {
-        String msg;
+    public ResponseEntity<Map<String, Object>> handleBadRequestExceptions(Exception ex, HttpServletRequest req) {
+        String message;
 
-        if (ex instanceof HttpMessageNotReadableException) {
-            msg = "Некорректное тело запроса";
-        } else if (ex instanceof MethodArgumentNotValidException) {
-            MethodArgumentNotValidException manv = (MethodArgumentNotValidException) ex;
-            String details = manv.getBindingResult().getFieldErrors().stream()
+        if (ex instanceof MethodArgumentNotValidException manv) {
+            message = manv.getBindingResult().getFieldErrors().stream()
                     .map(err -> err.getField() + ": " + err.getDefaultMessage())
                     .collect(Collectors.joining("; "));
-            msg = "Ошибка валидации: " + details;
-        } else if (ex instanceof ConstraintViolationException) {
-            ConstraintViolationException cve = (ConstraintViolationException) ex;
-            String details = cve.getConstraintViolations().stream()
+            if (message.isBlank()) message = "Некорректный запрос";
+        } else if (ex instanceof ConstraintViolationException cve) {
+            message = cve.getConstraintViolations().stream()
                     .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                     .collect(Collectors.joining("; "));
-            msg = "Ошибка валидации: " + details;
-        } else if (ex instanceof MissingRequestHeaderException) {
-            MissingRequestHeaderException mrh = (MissingRequestHeaderException) ex;
-            msg = "Отсутствует обязательный заголовок: " + mrh.getHeaderName();
-        } else if (ex instanceof MissingServletRequestParameterException) {
-            MissingServletRequestParameterException msp = (MissingServletRequestParameterException) ex;
-            msg = "Отсутствует обязательный параметр: " + msp.getParameterName();
-        } else if (ex instanceof MethodArgumentTypeMismatchException) {
-            MethodArgumentTypeMismatchException mat = (MethodArgumentTypeMismatchException) ex;
-            String name = mat.getName();
-            String required = (mat.getRequiredType() != null)
-                    ? mat.getRequiredType().getSimpleName()
-                    : "неизвестно";
-            msg = "Неверный формат параметра '" + name + "'. Ожидается: " + required;
+            if (message.isBlank()) message = "Некорректный запрос";
+        } else if (ex instanceof MissingRequestHeaderException mrh) {
+            message = "Отсутствует обязательный заголовок: " + mrh.getHeaderName();
+        } else if (ex instanceof MissingServletRequestParameterException msp) {
+            message = "Отсутствует обязательный параметр: " + msp.getParameterName();
+        } else if (ex instanceof MethodArgumentTypeMismatchException mat) {
+            String required = mat.getRequiredType() != null ? mat.getRequiredType().getSimpleName() : "неизвестно";
+            message = "Неверный формат параметра '" + mat.getName() + "'. Ожидается: " + required;
+        } else if (ex instanceof HttpMessageNotReadableException) {
+            message = "Некорректное тело запроса";
         } else {
-            msg = "Некорректный запрос";
+            message = "Некорректный запрос";
         }
 
-        log.warn("Bad request ({}): {}", ex.getClass().getSimpleName(), msg);
-        return new ErrorResponse(msg);
+        log.warn("Bad request ({}): {}", ex.getClass().getSimpleName(), message);
+        return body(HttpStatus.BAD_REQUEST, req, message);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                                   HttpServletRequest req) {
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        log.warn("Data integrity violation: {}", msg);
+        // Можно отдать нейтральное сообщение, чтобы не светить SQL-детали:
+        return body(HttpStatus.CONFLICT, req, "Нарушение целостности данных");
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
-        HttpStatusCode code = ex.getStatusCode();
-        String msg = ex.getReason() != null ? ex.getReason() : "Ошибка запроса";
-        if (code.is4xxClientError()) {
-            log.warn("ResponseStatusException {}: {}", code.value(), msg);
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex,
+                                                                    HttpServletRequest req) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String msg = ex.getReason();
+        if (status.is4xxClientError()) {
+            log.warn("ResponseStatus {}: {}", status.value(), msg);
         } else {
-            log.error("ResponseStatusException {}: {}", code.value(), msg, ex);
+            log.error("ResponseStatus {}: {}", status.value(), msg, ex);
         }
-        return ResponseEntity.status(code).body(new ErrorResponse(msg));
+        return body(status, req, msg);
     }
 
     @ExceptionHandler(Throwable.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErrorResponse handleOther(Throwable ex) {
+    public ResponseEntity<Map<String, Object>> handleOther(Throwable ex, HttpServletRequest req) {
         log.error("Unexpected error", ex);
-        return new ErrorResponse("Внутренняя ошибка сервера");
-    }
-
-    @ExceptionHandler(ForbiddenException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public Map<String, String> handleForbidden(ForbiddenException ex) {
-        log.warn("Forbidden: {}", ex.getMessage());
-        java.util.Map<String, String> body = new java.util.HashMap<>();
-        body.put("error", ex.getMessage());
-        return body;
+        return body(HttpStatus.INTERNAL_SERVER_ERROR, req, "Внутренняя ошибка сервера");
     }
 }

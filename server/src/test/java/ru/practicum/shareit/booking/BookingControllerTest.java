@@ -37,7 +37,7 @@ class BookingControllerTest {
         BookingCreateRequest bad = new BookingCreateRequest();
         bad.setItemId(1L);
         bad.setStart(LocalDateTime.now().plusDays(1));
-        bad.setEnd(LocalDateTime.now()); // раньше старта
+        bad.setEnd(LocalDateTime.now());
 
         mvc.perform(post("/bookings")
                         .header(HDR, 1L)
@@ -55,7 +55,6 @@ class BookingControllerTest {
         ok.setStart(LocalDateTime.now().plusHours(1));
         ok.setEnd(LocalDateTime.now().plusHours(2));
 
-        // отдаём простейший DTO; предположим, что у BookingDto есть пустой конструктор/сеттеры (обычно Lombok @NoArgsConstructor)
         BookingDto stub = new BookingDto();
         Mockito.when(service.create(eq(7L), any(BookingCreateRequest.class))).thenReturn(stub);
 

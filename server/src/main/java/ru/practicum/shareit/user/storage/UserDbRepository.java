@@ -44,6 +44,9 @@ public class UserDbRepository implements UserRepository {
 
     @Override
     public boolean existsByEmail(String email, Long excludeId) {
-        return jpa.existsByEmailCaseInsensitive(email, excludeId);
+        if (excludeId == null) {
+            return jpa.existsByEmailIgnoreCase(email);
+        }
+        return jpa.existsByEmailIgnoreCaseAndIdNot(email, excludeId);
     }
 }

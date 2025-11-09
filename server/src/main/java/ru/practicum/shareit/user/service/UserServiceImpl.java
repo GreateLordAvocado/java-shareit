@@ -3,6 +3,7 @@ package ru.practicum.shareit.user.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import ru.practicum.shareit.exceptions.ConflictException;
 import ru.practicum.shareit.exceptions.NotFoundException;
@@ -17,6 +18,7 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
     private final UserJpaRepository users;
@@ -25,13 +27,14 @@ public class UserServiceImpl implements UserService {
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     @Override
+    @Transactional
     public UserDto create(UserDto dto) {
         validateForCreate(dto);
 
         String email = cleanEmail(dto.getEmail());
         String name  = dto.getName().trim();
 
-        if (users.existsByEmailCaseInsensitive(email, null)) {
+        if (users.existsByEmailIgnoreCase(email)) {
             throw new ConflictException("Email уже используется: " + email);
         }
 
@@ -45,9 +48,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserDto update(Long id, UserDto patch) {
         if (patch == null) {
             throw new ValidationException("Тело запроса не должно быть пустым");
+        }
+
+        if (patch.getName() == null && patch.getEmail() == null) {
+            throw new ValidationException("Не передано ни одно поле для обновления");
         }
 
         User existing = users.findById(id)
@@ -66,7 +74,7 @@ public class UserServiceImpl implements UserService {
             if (!SIMPLE_EMAIL.matcher(email).matches()) {
                 throw new ValidationException("Некорректный email");
             }
-            if (users.existsByEmailCaseInsensitive(email, id)) {
+            if (users.existsByEmailIgnoreCaseAndIdNot(email, id)) {
                 throw new ConflictException("Email уже используется: " + email);
             }
             existing.setEmail(email);
@@ -92,6 +100,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
         users.deleteById(id);
     }

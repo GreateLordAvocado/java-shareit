@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import ru.practicum.shareit.gateway.user.dto.UserCreateDto;
 import ru.practicum.shareit.gateway.user.dto.UserUpdateDto;
 
@@ -26,8 +28,12 @@ public class UserController {
     @PatchMapping("/{id}")
     public ResponseEntity<String> update(@PathVariable Long id,
                                          @Valid @RequestBody UserUpdateDto dto) {
+        // Частичное обновление: хотя бы одно поле должно быть задано
         if (dto.getName() == null && dto.getEmail() == null) {
-            return ResponseEntity.badRequest().body("{\"error\":\"At least one field must be provided\"}");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Body must contain at least one of the fields: name or email"
+            );
         }
         return client.patch(id, dto);
     }
