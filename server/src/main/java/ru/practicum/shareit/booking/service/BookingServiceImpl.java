@@ -88,8 +88,6 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingDto approve(Long ownerId, Long bookingId, boolean approved) {
-        userService.requireEntity(ownerId);
-
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено: " + bookingId));
 
