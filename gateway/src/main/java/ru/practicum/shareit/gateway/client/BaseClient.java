@@ -1,58 +1,89 @@
 package ru.practicum.shareit.gateway.client;
 
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.lang.Nullable;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.DefaultUriBuilderFactory;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 
 public class BaseClient {
+
+    private static final String USER_HEADER = "X-Sharer-User-Id";
+
     private final RestTemplate rest;
-    private final String serverUrl;
 
-    public BaseClient(RestTemplate rest, String serverUrl) {
-        this.rest = rest;
-        this.serverUrl = serverUrl.endsWith("/") ? serverUrl.substring(0, serverUrl.length() - 1) : serverUrl;
+    public BaseClient(RestTemplateBuilder builder, String serverBaseUrl) {
+        Objects.requireNonNull(serverBaseUrl, "serverBaseUrl is null");
+
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpComponentsClientHttpRequestFactory requestFactory =
+                new HttpComponentsClientHttpRequestFactory(httpClient);
+
+        this.rest = builder
+                .uriTemplateHandler(new DefaultUriBuilderFactory(serverBaseUrl))
+                .requestFactory(() -> requestFactory)
+                .build();
     }
 
-    protected <T> ResponseEntity<T> get(String path, Long userId, Class<T> type, Map<String, ?> params) {
-        HttpEntity<?> entity = new HttpEntity<>(headers(userId));
-        return rest.exchange(uri(path, params), HttpMethod.GET, entity, type);
+    public ResponseEntity<String> get(String path, @Nullable Long userId,
+                                      Class<String> responseType, @Nullable Map<String, ?> params) {
+        return exchange(HttpMethod.GET, path, userId, null, responseType, params);
     }
 
-    protected <B, T> ResponseEntity<T> post(String path, Long userId, B body, Class<T> type, Map<String, ?> params) {
-        HttpEntity<B> entity = new HttpEntity<>(body, headers(userId));
-        return rest.exchange(uri(path, params), HttpMethod.POST, entity, type);
+    public ResponseEntity<String> post(String path, @Nullable Long userId, @Nullable Object body,
+                                       Class<String> responseType, @Nullable Map<String, ?> params) {
+        return exchange(HttpMethod.POST, path, userId, body, responseType, params);
     }
 
-    protected <B, T> ResponseEntity<T> patch(String path, Long userId, B body, Class<T> type, Map<String, ?> params) {
-        HttpEntity<B> entity = new HttpEntity<>(body, headers(userId));
-        return rest.exchange(uri(path, params), HttpMethod.PATCH, entity, type);
+    public ResponseEntity<String> patch(String path, @Nullable Long userId, @Nullable Object body,
+                                        Class<String> responseType, @Nullable Map<String, ?> params) {
+        return exchange(HttpMethod.PATCH, path, userId, body, responseType, params);
     }
 
-    protected <T> ResponseEntity<T> delete(String path, Long userId, Class<T> type, Map<String, ?> params) {
-        HttpEntity<?> entity = new HttpEntity<>(headers(userId));
-        return rest.exchange(uri(path, params), HttpMethod.DELETE, entity, type);
+    public ResponseEntity<String> delete(String path, @Nullable Long userId,
+                                         Class<String> responseType, @Nullable Map<String, ?> params) {
+        return exchange(HttpMethod.DELETE, path, userId, null, responseType, params);
     }
 
-    private HttpHeaders headers(Long userId) {
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_JSON);
-        if (userId != null) h.set("X-Sharer-User-Id", String.valueOf(userId));
-        return h;
-    }
+    private ResponseEntity<String> exchange(HttpMethod method, String path, @Nullable Long userId,
+                                            @Nullable Object body, Class<String> responseType,
+                                            @Nullable Map<String, ?> params) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(MediaType.parseMediaTypes("application/json"));
+        if (userId != null) headers.add(USER_HEADER, String.valueOf(userId));
 
-    private URI uri(String path, Map<String, ?> params) {
-        StringBuilder sb = new StringBuilder(serverUrl).append(path);
-        if (params != null && !params.isEmpty()) {
-            sb.append("?");
-            boolean first = true;
-            for (Map.Entry<String, ?> e : params.entrySet()) {
-                if (!first) sb.append("&");
-                first = false;
-                sb.append(e.getKey()).append("=").append(e.getValue());
-            }
+        HttpEntity<?> request = (body == null) ? new HttpEntity<>(headers) : new HttpEntity<>(body, headers);
+
+        try {
+            String url = buildUrl(path, params);
+            return rest.exchange(url, method, request, responseType);
+        } catch (HttpStatusCodeException e) {
+            return ResponseEntity
+                    .status(e.getStatusCode())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(e.getResponseBodyAsString());
+        } catch (ResourceAccessException e) {
+            throw e;
         }
-        return URI.create(sb.toString());
+    }
+
+    private String buildUrl(String path, @Nullable Map<String, ?> params) {
+        UriComponentsBuilder b = UriComponentsBuilder.fromPath(path);
+        if (params != null && !params.isEmpty()) {
+            params.forEach((k, v) -> {
+                if (v != null) b.queryParam(k, v);
+            });
+        }
+        return b.build(true).toUriString(); // true -> не кодировать уже закодированное
     }
 }
