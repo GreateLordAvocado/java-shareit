@@ -1,6 +1,8 @@
 package ru.practicum.shareit.gateway.request;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -35,11 +37,8 @@ public class RequestController {
 
     @GetMapping("/all")
     public ResponseEntity<String> all(@RequestHeader(HDR) Long userId,
-                                      @RequestParam(name = "from", required = false) Integer from,
-                                      @RequestParam(name = "size", required = false) Integer size) {
-        if ((from != null && from < 0) || (size != null && size <= 0)) {
-            return ResponseEntity.badRequest().body("{\"error\":\"from >= 0 и size > 0\"}");
-        }
+                                      @RequestParam(defaultValue = "0") @Min(0) int from,
+                                      @RequestParam(defaultValue = "20") @Positive int size) {
         return client.getAll(userId, from, size);
     }
 

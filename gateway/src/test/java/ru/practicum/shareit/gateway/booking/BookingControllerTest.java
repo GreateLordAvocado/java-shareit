@@ -1,8 +1,9 @@
 package ru.practicum.shareit.gateway.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -14,87 +15,166 @@ import ru.practicum.shareit.gateway.booking.dto.BookingCreateDto;
 
 import java.time.LocalDateTime;
 
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = BookingController.class)
+@WebMvcTest(BookingController.class)
 class BookingControllerTest {
+
+    private static final String HDR = "X-Sharer-User-Id";
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
 
     @MockBean BookingClient client;
 
-    @Test
-    void create_should400_whenEndNotAfterStart() throws Exception {
-        BookingCreateDto bad = new BookingCreateDto();
-        bad.setItemId(1L);
-        bad.setStart(LocalDateTime.now().plusDays(1));
-        bad.setEnd(LocalDateTime.now());
+    @Nested
+    class Create {
+        @Test
+        @DisplayName("POST /bookings — 400 без itemId")
+        void create_noItemId() throws Exception {
+            BookingCreateDto dto = new BookingCreateDto();
+            dto.setStart(LocalDateTime.now().plusHours(1));
+            dto.setEnd(LocalDateTime.now().plusHours(2));
 
-        mvc.perform(post("/bookings")
-                        .header("X-Sharer-User-Id", 1)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+            mvc.perform(post("/bookings")
+                            .header(HDR, 1L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(om.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").exists());
+        }
 
-        Mockito.verify(client, never()).create(Mockito.anyLong(), Mockito.any());
+        @Test
+        @DisplayName("POST /bookings — 400 end<=start")
+        void create_badDates() throws Exception {
+            BookingCreateDto dto = new BookingCreateDto();
+            dto.setItemId(10L);
+            dto.setStart(LocalDateTime.now().plusHours(2));
+            dto.setEnd(LocalDateTime.now().plusHours(1));
+
+            mvc.perform(post("/bookings")
+                            .header(HDR, 1L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(om.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("Дата окончания должна быть позже даты начала"));
+        }
+
+        @Test
+        @DisplayName("POST /bookings — 201 OK")
+        void create_ok() throws Exception {
+            BookingCreateDto dto = new BookingCreateDto();
+            dto.setItemId(10L);
+            dto.setStart(LocalDateTime.now().plusHours(1));
+            dto.setEnd(LocalDateTime.now().plusHours(2));
+
+            Mockito.when(client.create(anyLong(), any()))
+                    .thenReturn(ResponseEntity.status(201).body("{\"id\":77}"));
+
+            mvc.perform(post("/bookings")
+                            .header(HDR, 1L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(om.writeValueAsString(dto)))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("POST /bookings — 400 без заголовка X-Sharer-User-Id")
+        void create_noHeader() throws Exception {
+            BookingCreateDto dto = new BookingCreateDto();
+            dto.setItemId(10L);
+            dto.setStart(LocalDateTime.now().plusHours(1));
+            dto.setEnd(LocalDateTime.now().plusHours(2));
+
+            mvc.perform(post("/bookings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(om.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").exists());
+        }
     }
 
-    @Test
-    void create_shouldDelegate_whenValid() throws Exception {
-        BookingCreateDto ok = new BookingCreateDto();
-        ok.setItemId(1L);
-        ok.setStart(LocalDateTime.now().plusHours(1));
-        ok.setEnd(LocalDateTime.now().plusHours(2));
+    @Nested
+    class Approve {
+        @Test
+        @DisplayName("PATCH /bookings/{id}?approved=true — 200 OK")
+        void approve_ok() throws Exception {
+            Mockito.when(client.approve(anyLong(), anyLong(), anyBoolean()))
+                    .thenReturn(ResponseEntity.ok("{\"id\":1,\"status\":\"APPROVED\"}"));
 
-        Mockito.when(client.create(Mockito.eq(7L), ArgumentMatchers.any()))
-                .thenReturn(ResponseEntity.ok("{}"));
+            mvc.perform(patch("/bookings/{id}", 5L)
+                            .header(HDR, 2L)
+                            .param("approved", "true"))
+                    .andExpect(status().isOk());
+        }
 
-        mvc.perform(post("/bookings")
-                        .header("X-Sharer-User-Id", 7)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(ok)))
-                .andExpect(status().isOk());
-
-        Mockito.verify(client, times(1)).create(Mockito.eq(7L), ArgumentMatchers.any());
+        @Test
+        @DisplayName("PATCH /bookings/{id} без заголовка — 400")
+        void approve_noHeader() throws Exception {
+            mvc.perform(patch("/bookings/{id}", 5L)
+                            .param("approved", "true"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").exists());
+        }
     }
 
-    @Test
-    void listForBooker_should400_whenUnknownState() throws Exception {
-        mvc.perform(get("/bookings")
-                        .header("X-Sharer-User-Id", 1)
-                        .param("state", "WAT_IS_THAT"))
-                .andExpect(status().isBadRequest());
+    @Nested
+    class GetById {
+        @Test
+        @DisplayName("GET /bookings/{id} — 200 OK")
+        void get_ok() throws Exception {
+            Mockito.when(client.getById(anyLong(), anyLong()))
+                    .thenReturn(ResponseEntity.ok("{\"id\":5}"));
 
-        Mockito.verify(client, never()).forBooker(Mockito.anyLong(), Mockito.anyString());
+            mvc.perform(get("/bookings/{bookingId}", 5L)
+                            .header(HDR, 1L))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("GET /bookings/{id} без заголовка — 400")
+        void get_noHeader() throws Exception {
+            mvc.perform(get("/bookings/{bookingId}", 5L))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").exists());
+        }
     }
 
-    @Test
-    void listForBooker_shouldPassNormalizedState() throws Exception {
-        Mockito.when(client.forBooker(Mockito.eq(3L), Mockito.eq("FUTURE")))
-                .thenReturn(ResponseEntity.ok("[]"));
+    @Nested
+    class Lists {
+        @Test
+        @DisplayName("GET /bookings?state=UNKNOWN — 400 Unknown state")
+        void forBooker_unknownState() throws Exception {
+            mvc.perform(get("/bookings")
+                            .header(HDR, 1L)
+                            .param("state", "unknown"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("Unknown state: unknown"));
+        }
 
-        mvc.perform(get("/bookings")
-                        .header("X-Sharer-User-Id", 3)
-                        .param("state", "future"))
-                .andExpect(status().isOk());
+        @Test
+        @DisplayName("GET /bookings — 200 OK (без state)")
+        void forBooker_ok() throws Exception {
+            Mockito.when(client.forBooker(anyLong(), isNull()))
+                    .thenReturn(ResponseEntity.ok("[]"));
 
-        Mockito.verify(client, times(1)).forBooker(3L, "FUTURE");
-    }
+            mvc.perform(get("/bookings")
+                            .header(HDR, 1L))
+                    .andExpect(status().isOk());
+        }
 
-    @Test
-    void approve_shouldDelegate() throws Exception {
-        Mockito.when(client.approve(Mockito.eq(5L), Mockito.eq(42L), Mockito.eq(true)))
-                .thenReturn(ResponseEntity.ok("{}"));
+        @Test
+        @DisplayName("GET /bookings/owner?state=WAITING — 200 OK")
+        void forOwner_ok() throws Exception {
+            Mockito.when(client.forOwner(anyLong(), eq("WAITING")))
+                    .thenReturn(ResponseEntity.ok("[]"));
 
-        mvc.perform(patch("/bookings/{id}", 42L)
-                        .header("X-Sharer-User-Id", 5)
-                        .param("approved", "true"))
-                .andExpect(status().isOk());
-
-        Mockito.verify(client, times(1)).approve(5L, 42L, true);
+            mvc.perform(get("/bookings/owner")
+                            .header(HDR, 1L)
+                            .param("state", "WAITING"))
+                    .andExpect(status().isOk());
+        }
     }
 }

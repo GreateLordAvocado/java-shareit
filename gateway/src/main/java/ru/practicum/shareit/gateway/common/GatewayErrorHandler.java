@@ -30,7 +30,7 @@ public class GatewayErrorHandler {
 
     @ExceptionHandler(HttpStatusCodeException.class)
     public ResponseEntity<Object> handleDownstream(HttpStatusCodeException ex) {
-        var status = ex.getStatusCode(); // в Spring 6 это HttpStatusCode
+        var status = ex.getStatusCode(); // Spring 6: HttpStatusCode
         String body = ex.getResponseBodyAsString();
         if (body == null || body.isBlank()) {
             body = "{\"error\":\"Downstream error\"}";
@@ -70,10 +70,23 @@ public class GatewayErrorHandler {
             message = manve.getBindingResult().getFieldErrors().stream()
                     .map(this::formatFieldError)
                     .collect(Collectors.joining("; "));
+            if (message.isBlank()) {
+                // если нет fieldErrors, попробуем objectErrors
+                String objMsg = manve.getBindingResult().getAllErrors().stream()
+                        .map(err -> Objects.toString(err.getDefaultMessage(), "ошибка"))
+                        .collect(Collectors.joining("; "));
+                message = objMsg.isBlank() ? "Некорректные входные данные" : objMsg;
+            }
         } else if (ex instanceof BindException be) {
             message = be.getBindingResult().getFieldErrors().stream()
                     .map(this::formatFieldError)
                     .collect(Collectors.joining("; "));
+            if (message.isBlank()) {
+                String objMsg = be.getBindingResult().getAllErrors().stream()
+                        .map(err -> Objects.toString(err.getDefaultMessage(), "ошибка"))
+                        .collect(Collectors.joining("; "));
+                message = objMsg.isBlank() ? "Некорректные входные данные" : objMsg;
+            }
         } else {
             message = "Некорректные входные данные";
         }
@@ -123,6 +136,16 @@ public class GatewayErrorHandler {
         return new ErrorResponse(message);
     }
 
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler({ IllegalArgumentException.class, IllegalStateException.class })
+    public ErrorResponse handleIllegalArg(RuntimeException ex) {
+        String message = ex.getMessage() == null || ex.getMessage().isBlank()
+                ? "Некорректный запрос"
+                : ex.getMessage();
+        log.debug("400 Illegal arg/state: {}", message);
+        return new ErrorResponse(message);
+    }
+
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ErrorResponse handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
@@ -139,15 +162,12 @@ public class GatewayErrorHandler {
     }
 
     private String formatFieldError(FieldError fe) {
-        String field = fe.getField();
-        String msg = Objects.toString(fe.getDefaultMessage(), "ошибка");
-        return field + ": " + msg;
+        return Objects.toString(fe.getDefaultMessage(), "ошибка");
     }
 
     private String formatConstraintViolation(ConstraintViolation<?> v) {
-        String path = v.getPropertyPath() != null ? v.getPropertyPath().toString() : "<param>";
         String msg = Objects.toString(v.getMessage(), "ошибка");
-        return path + ": " + msg;
+        return msg;
     }
 
     @Value
