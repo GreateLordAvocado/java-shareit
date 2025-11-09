@@ -12,9 +12,9 @@ public class ItemRequestMapper {
 
     public static ItemRequest toEntity(Long requesterId, String description) {
         return ItemRequest.builder()
-                .description(description == null ? null : description.trim())
+                .description(description)
                 .requesterId(requesterId)
-                .build();
+                .build(); // created проставится @PrePersist
     }
 
     public static ItemRequestDto toDto(ItemRequest entity, List<Item> answers) {
@@ -22,8 +22,8 @@ public class ItemRequestMapper {
                 .id(entity.getId())
                 .description(entity.getDescription())
                 .created(entity.getCreated())
-                .items(answers == null ? List.of()
-                        : answers.stream().map(ItemRequestMapper::toAnswer).toList())
+                .items(answers == null ? List.of() :
+                        answers.stream().map(ItemRequestMapper::toAnswer).toList())
                 .build();
     }
 
@@ -35,13 +35,11 @@ public class ItemRequestMapper {
     }
 
     public static Map<Long, List<Item>> groupByRequestId(List<Item> items) {
-        if (items == null || items.isEmpty()) return Map.of();
-        return items.stream()
-                .collect(Collectors.groupingBy(
-                        Item::getRequestId,
-                        LinkedHashMap::new,
-                        Collectors.toList()
-                ));
+        return items.stream().collect(Collectors.groupingBy(
+                Item::getRequestId,
+                LinkedHashMap::new,
+                Collectors.toList()
+        ));
     }
 
     private static ItemRequestDto.ItemAnswerDto toAnswer(Item item) {

@@ -28,7 +28,7 @@ public class ItemRequest {
     private LocalDateTime created;
 
     @PrePersist
-    private void prePersist() {
+    public void onCreate() {
         if (created == null) {
             created = LocalDateTime.now();
         }

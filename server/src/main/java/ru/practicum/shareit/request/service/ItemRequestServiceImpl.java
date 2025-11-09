@@ -41,6 +41,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         }
         description = description.trim();
 
+        // Важно: в маппере toEntity(...) проставь created = now()
         ItemRequest toSave = ItemRequestMapper.toEntity(userId, description);
         ItemRequest saved = requestRepo.save(toSave);
 
@@ -77,7 +78,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         Pageable page = PageRequest.of(from / size, size, sort);
 
         List<ItemRequest> requests =
-                requestRepo.findByRequesterIdNotOrderByCreatedDesc(userId, page).getContent();
+                requestRepo.findByRequesterIdNot(userId, page).getContent(); // <-- фикс
 
         if (requests.isEmpty()) return Collections.emptyList();
 

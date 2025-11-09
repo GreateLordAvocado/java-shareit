@@ -34,15 +34,30 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingDto create(Long userId, BookingCreateRequest dto) {
+        if (dto == null) {
+            throw new ValidationException("Тело запроса не должно быть пустым");
+        }
+        if (dto.getItemId() == null) {
+            throw new ValidationException("Не указан itemId");
+        }
+        if (dto.getStart() == null || dto.getEnd() == null) {
+            throw new ValidationException("Должны быть указаны даты начала и конца");
+        }
+        if (!dto.getEnd().isAfter(dto.getStart())) {
+            throw new ValidationException("Дата окончания должна быть позже даты начала");
+        }
+
         User booker = userService.requireEntity(userId);
         Item item   = itemService.requireEntity(dto.getItemId());
 
         if (item.getOwnerId() != null && item.getOwnerId().equals(userId)) {
             throw new NotFoundException("Нельзя бронировать свою вещь");
         }
+
         if (Boolean.FALSE.equals(item.getAvailable())) {
             throw new ValidationException("Вещь недоступна для бронирования");
         }
+
         boolean overlap = bookingRepo.hasApprovedOverlap(item.getId(), dto.getStart(), dto.getEnd());
         if (overlap) {
             throw new ValidationException("В указанный период вещь уже забронирована");
@@ -63,17 +78,27 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingDto approve(Long ownerId, Long bookingId, boolean approved) {
+        userService.requireEntity(ownerId);
+
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено: " + bookingId));
 
-        if (booking.getItem() == null || !ownerId.equals(booking.getItem().getOwnerId())) {
+        Item item = booking.getItem();
+        if (item == null || item.getOwnerId() == null) {
+            throw new NotFoundException("Вещь для бронирования не найдена");
+        }
+        if (!ownerId.equals(item.getOwnerId())) {
             throw new ForbiddenException("Подтверждать/отклонять может только владелец вещи");
         }
+
         if (booking.getStatus() == BookingStatus.APPROVED && approved) {
             throw new ValidationException("Бронирование уже подтверждено");
         }
         if (booking.getStatus() == BookingStatus.REJECTED && !approved) {
             throw new ValidationException("Бронирование уже отклонено");
+        }
+        if (booking.getStatus() != BookingStatus.WAITING) {
+            throw new ValidationException("Статус бронирования уже изменён");
         }
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
@@ -82,6 +107,8 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingDto getById(Long userId, Long bookingId) {
+        userService.requireEntity(userId);
+
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено: " + bookingId));
 
@@ -89,7 +116,7 @@ public class BookingServiceImpl implements BookingService {
         Long bookerId = booking.getBooker() != null ? booking.getBooker().getId() : null;
 
         if (!userId.equals(bookerId) && !userId.equals(ownerId)) {
-            throw new NotFoundException("Доступ запрещён: можно смотреть только своё бронирование или бронирование своей вещи");
+            throw new NotFoundException("Можно смотреть только своё бронирование или бронирование своей вещи");
         }
         return BookingMapper.toDto(booking);
     }
