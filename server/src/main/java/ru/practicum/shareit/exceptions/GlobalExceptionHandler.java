@@ -18,7 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -109,8 +108,19 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, req, ex.getMessage());
     }
 
-    @ExceptionHandler({ IllegalArgumentException.class, NoSuchElementException.class })
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(RuntimeException ex, HttpServletRequest req) {
+    @ExceptionHandler({
+            java.util.NoSuchElementException.class,
+            jakarta.persistence.EntityNotFoundException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleNotFoundStandard(RuntimeException ex, HttpServletRequest req) {
+        String msg = (ex.getMessage() == null || ex.getMessage().isBlank())
+                ? "Ресурс не найден" : ex.getMessage();
+        log.warn("Not found ({}): {}", ex.getClass().getSimpleName(), msg);
+        return body(HttpStatus.NOT_FOUND, req, msg);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
         log.warn("Bad request ({}): {}", ex.getClass().getSimpleName(), ex.getMessage());
         String msg = (ex.getMessage() == null || ex.getMessage().isBlank())
                 ? "Некорректный запрос" : ex.getMessage();

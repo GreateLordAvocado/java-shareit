@@ -49,13 +49,7 @@ public class BookingController {
                               @PathVariable Long bookingId,
                               @RequestParam("approved") boolean approved) {
         log.debug("PATCH /bookings/{} ownerId={}, approved={}", bookingId, ownerId, approved);
-
-        try {
-            return service.approve(ownerId, bookingId, approved);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            throw new ValidationException(e.getMessage() != null ? e.getMessage()
-                    : "Некорректный запрос");
-        }
+        return service.approve(ownerId, bookingId, approved);
     }
 
     @GetMapping("/{bookingId}")

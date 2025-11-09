@@ -54,30 +54,38 @@ public class UserServiceImpl implements UserService {
             throw new ValidationException("Тело запроса не должно быть пустым");
         }
 
-        if (patch.getName() == null && patch.getEmail() == null) {
-            throw new ValidationException("Не передано ни одно поле для обновления");
-        }
-
         User existing = users.findById(id)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + id));
+
+        boolean changed = false;
 
         if (patch.getName() != null) {
             String name = patch.getName().trim();
             if (!StringUtils.hasText(name)) {
                 throw new ValidationException("Имя пользователя не должно быть пустым");
             }
-            existing.setName(name);
+            if (!name.equals(existing.getName())) {
+                existing.setName(name);
+                changed = true;
+            }
         }
 
         if (patch.getEmail() != null) {
             String email = cleanEmail(patch.getEmail());
-            if (!SIMPLE_EMAIL.matcher(email).matches()) {
+            if (!StringUtils.hasText(email) || !SIMPLE_EMAIL.matcher(email).matches()) {
                 throw new ValidationException("Некорректный email");
             }
-            if (users.existsByEmailIgnoreCaseAndIdNot(email, id)) {
-                throw new ConflictException("Email уже используется: " + email);
+            if (!email.equalsIgnoreCase(existing.getEmail())) {
+                if (users.existsByEmailIgnoreCaseAndIdNot(email, id)) {
+                    throw new ConflictException("Email уже используется: " + email);
+                }
+                existing.setEmail(email);
+                changed = true;
             }
-            existing.setEmail(email);
+        }
+
+        if (!changed) {
+            return UserMapper.toDto(existing);
         }
 
         User saved = users.save(existing);

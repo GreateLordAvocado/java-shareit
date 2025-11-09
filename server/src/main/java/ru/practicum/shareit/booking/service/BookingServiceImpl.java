@@ -47,13 +47,23 @@ public class BookingServiceImpl implements BookingService {
             throw new ValidationException("Дата окончания должна быть позже даты начала");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        boolean bothPast = dto.getStart().isBefore(now) && dto.getEnd().isBefore(now);
+        if (!bothPast) {
+            if (dto.getStart().isBefore(now)) {
+                throw new ValidationException("Дата начала не может быть в прошлом");
+            }
+            if (dto.getEnd().isBefore(now)) {
+                throw new ValidationException("Дата окончания не может быть в прошлом");
+            }
+        }
+
         User booker = userService.requireEntity(userId);
         Item item   = itemService.requireEntity(dto.getItemId());
 
         if (item.getOwnerId() != null && item.getOwnerId().equals(userId)) {
             throw new NotFoundException("Нельзя бронировать свою вещь");
         }
-
         if (Boolean.FALSE.equals(item.getAvailable())) {
             throw new ValidationException("Вещь недоступна для бронирования");
         }
@@ -90,19 +100,16 @@ public class BookingServiceImpl implements BookingService {
         if (!ownerId.equals(item.getOwnerId())) {
             throw new ForbiddenException("Подтверждать/отклонять может только владелец вещи");
         }
-
-        if (booking.getStatus() == BookingStatus.APPROVED && approved) {
-            throw new ValidationException("Бронирование уже подтверждено");
-        }
-        if (booking.getStatus() == BookingStatus.REJECTED && !approved) {
-            throw new ValidationException("Бронирование уже отклонено");
-        }
         if (booking.getStatus() != BookingStatus.WAITING) {
             throw new ValidationException("Статус бронирования уже изменён");
         }
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
-        return BookingMapper.toDto(bookingRepo.save(booking));
+        bookingRepo.save(booking);
+
+        Booking reloaded = bookingRepo.findById(booking.getId())
+                .orElseThrow(() -> new NotFoundException("Бронирование не найдено после сохранения: " + bookingId));
+        return BookingMapper.toDto(reloaded);
     }
 
     @Override
