@@ -1,50 +1,45 @@
 package ru.practicum.shareit.item.dto;
 
-import lombok.AllArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Singular;
+import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Getter
-@Setter
+@Value
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Jacksonized
 public class ItemDto {
-    private Long id;
-    private String name;
-    private String description;
-    private Boolean available;
-    private Long ownerId;
-    private Long requestId;
-    private BookingShortDto lastBooking;
-    private BookingShortDto nextBooking;
+    Long id;
 
-    private List<CommentDto> comments;
+    @NotBlank(message = "Название вещи не должно быть пустым")
+    String name;
 
-    public ItemDto(Long id,
-                   String name,
-                   String description,
-                   Boolean available,
-                   Long ownerId,
-                   Long requestId,
-                   BookingShortDto lastBooking,
-                   BookingShortDto nextBooking) {
-        this(id, name, description, available, ownerId, requestId, lastBooking, nextBooking, List.of());
-    }
+    @NotBlank(message = "Описание вещи не должно быть пустым")
+    String description;
 
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @NotNull(message = "Поле доступности вещи (available) должно быть указано")
+    Boolean available;
+
+    Long ownerId;
+    Long requestId;
+    BookingShortDto lastBooking;
+    BookingShortDto nextBooking;
+
+    @Singular("comment")
+    List<CommentDto> comments;
+
+    @Value
+    @Builder
+    @Jacksonized
     public static class BookingShortDto {
-        private Long id;
-        private Long bookerId;
-        private LocalDateTime start;
-        private LocalDateTime end;
+        Long id;
+        Long bookerId;
+        LocalDateTime start;
+        LocalDateTime end;
     }
 }

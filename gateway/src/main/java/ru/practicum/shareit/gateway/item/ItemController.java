@@ -3,6 +3,9 @@ package ru.practicum.shareit.gateway.item;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -10,8 +13,10 @@ import ru.practicum.shareit.gateway.item.dto.CommentCreateDto;
 import ru.practicum.shareit.gateway.item.dto.ItemCreateDto;
 import ru.practicum.shareit.gateway.item.dto.ItemUpdateDto;
 
+@Slf4j
 @Validated
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/items")
 public class ItemController {
 
@@ -19,13 +24,10 @@ public class ItemController {
 
     private final ItemClient client;
 
-    public ItemController(ItemClient client) {
-        this.client = client;
-    }
-
     @PostMapping
     public ResponseEntity<String> create(@RequestHeader(USER_HEADER) Long ownerId,
                                          @Valid @RequestBody ItemCreateDto dto) {
+        log.debug("POST /items by ownerId={}, dto={}", ownerId, dto);
         return client.create(ownerId, dto);
     }
 
@@ -33,10 +35,17 @@ public class ItemController {
     public ResponseEntity<String> update(@RequestHeader(USER_HEADER) Long ownerId,
                                          @PathVariable Long itemId,
                                          @Valid @RequestBody ItemUpdateDto dto) {
-        if (dto.getName() == null && dto.getDescription() == null
-                && dto.getAvailable() == null && dto.getRequestId() == null) {
-            return ResponseEntity.badRequest().body("{\"error\":\"At least one field must be provided\"}");
+        log.debug("PATCH /items/{} by ownerId={}, dto={}", itemId, ownerId, dto);
+
+        if (dto.getName() == null
+                && dto.getDescription() == null
+                && dto.getAvailable() == null
+                && dto.getRequestId() == null) {
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"error\":\"At least one field must be provided\"}");
         }
+
         return client.patch(ownerId, itemId, dto);
     }
 
@@ -44,12 +53,14 @@ public class ItemController {
     public ResponseEntity<String> getOwnerItems(@RequestHeader(USER_HEADER) Long ownerId,
                                                 @RequestParam(defaultValue = "0") @Min(0) int from,
                                                 @RequestParam(defaultValue = "20") @Positive int size) {
+        log.debug("GET /items by ownerId={}, from={}, size={}", ownerId, from, size);
         return client.getOwnerItems(ownerId, from, size);
     }
 
     @GetMapping("/{itemId}")
     public ResponseEntity<String> getById(@RequestHeader(USER_HEADER) Long userId,
                                           @PathVariable Long itemId) {
+        log.debug("GET /items/{} by userId={}", itemId, userId);
         return client.getById(userId, itemId);
     }
 
@@ -58,6 +69,7 @@ public class ItemController {
                                          @RequestParam String text,
                                          @RequestParam(defaultValue = "0") @Min(0) int from,
                                          @RequestParam(defaultValue = "20") @Positive int size) {
+        log.debug("GET /items/search by userId={}, text='{}', from={}, size={}", userId, text, from, size);
         if (text == null || text.trim().isEmpty()) {
             return ResponseEntity.ok("[]");
         }
@@ -68,6 +80,7 @@ public class ItemController {
     public ResponseEntity<String> addComment(@RequestHeader(USER_HEADER) Long userId,
                                              @PathVariable Long itemId,
                                              @Valid @RequestBody CommentCreateDto dto) {
+        log.debug("POST /items/{}/comment by userId={}, dto={}", itemId, userId, dto);
         return client.addComment(userId, itemId, dto);
     }
 }

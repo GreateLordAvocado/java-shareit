@@ -1,10 +1,14 @@
 package ru.practicum.shareit.user.dto;
 
+import lombok.experimental.UtilityClass;
+import org.springframework.lang.Nullable;
 import ru.practicum.shareit.user.model.User;
 
+@UtilityClass
 public class UserMapper {
 
-    public static UserDto toDto(User u) {
+    @Nullable
+    public static UserDto toDto(@Nullable User u) {
         if (u == null) {
             return null;
         }
@@ -15,7 +19,8 @@ public class UserMapper {
                 .build();
     }
 
-    public static User fromDto(UserDto d) {
+    @Nullable
+    public static User fromDto(@Nullable UserDto d) {
         if (d == null) {
             return null;
         }

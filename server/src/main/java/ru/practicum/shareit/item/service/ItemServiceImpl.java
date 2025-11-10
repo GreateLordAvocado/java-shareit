@@ -100,14 +100,24 @@ public class ItemServiceImpl implements ItemService {
         Item item = repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
 
-        ItemDto dto = ItemMapper.toDto(item);
+        // базовые поля из сущности
+        ItemDto base = ItemMapper.toDto(item);
 
+        // комментарии
         List<CommentDto> comments = commentRepo.findByItem_IdOrderByCreatedDesc(itemId).stream()
                 .map(CommentMapper::toDto)
                 .toList();
 
-        dto.setComments(comments);
-        return dto;
+        // собираем неизменяемый DTO через билдер (без сеттеров)
+        return ItemDto.builder()
+                .id(base.getId())
+                .name(base.getName())
+                .description(base.getDescription())
+                .available(base.getAvailable())
+                .ownerId(base.getOwnerId())
+                .requestId(base.getRequestId())
+                .comments(comments) // благодаря @Singular можно передать коллекцию
+                .build();
     }
 
     @Override
@@ -131,7 +141,7 @@ public class ItemServiceImpl implements ItemService {
         return items.stream()
                 .sorted(Comparator.comparing(Item::getId))
                 .map(item -> {
-                    ItemDto dto = ItemMapper.toDto(item);
+                    ItemDto base = ItemMapper.toDto(item);
 
                     var list = bookingsByItem.getOrDefault(item.getId(), List.of())
                             .stream()
@@ -148,9 +158,17 @@ public class ItemServiceImpl implements ItemService {
                             .min(Comparator.comparing(Booking::getStart))
                             .orElse(null);
 
-                    dto.setLastBooking(toShort(last));
-                    dto.setNextBooking(toShort(next));
-                    return dto;
+                    // формируем новый DTO с нужными полями бронирований
+                    return ItemDto.builder()
+                            .id(base.getId())
+                            .name(base.getName())
+                            .description(base.getDescription())
+                            .available(base.getAvailable())
+                            .ownerId(base.getOwnerId())
+                            .requestId(base.getRequestId())
+                            .lastBooking(toShort(last))
+                            .nextBooking(toShort(next))
+                            .build();
                 })
                 .collect(Collectors.toList());
     }
@@ -220,11 +238,11 @@ public class ItemServiceImpl implements ItemService {
         if (b == null) {
             return null;
         }
-        return new ItemDto.BookingShortDto(
-                b.getId(),
-                b.getBooker().getId(),
-                b.getStart(),
-                b.getEnd()
-        );
+        return ItemDto.BookingShortDto.builder()
+                .id(b.getId())
+                .bookerId(b.getBooker().getId())
+                .start(b.getStart())
+                .end(b.getEnd())
+                .build();
     }
 }

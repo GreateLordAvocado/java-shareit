@@ -52,7 +52,13 @@ class CommentFlowTest {
     }
 
     private long createItem(long ownerId, String name) throws Exception {
-        var dto = new ItemDto(null, name, "desc", true, null, null, null, null);
+        // Lombok @Value + @Builder + @Jacksonized для ItemDto
+        var dto = ItemDto.builder()
+                .name(name)
+                .description("desc")
+                .available(true)
+                .build();
+
         String json = mockMvc.perform(post("/items")
                         .header(HDR, ownerId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -63,7 +69,7 @@ class CommentFlowTest {
     }
 
     private long createBooking(long bookerId, long itemId, LocalDateTime start, LocalDateTime end) throws Exception {
-        // record-конструктор вместо сеттеров
+        // Конструктор с аргументами у BookingCreateRequest сохранён
         var req = new BookingCreateRequest(itemId, start, end);
 
         String json = mockMvc.perform(post("/bookings")

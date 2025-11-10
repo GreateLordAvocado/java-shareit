@@ -1,12 +1,10 @@
 package ru.practicum.shareit.item;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-// Если у тебя бывают проблемы с Lombok @Slf4j, можно заменить на обычный Logger:
-// import org.slf4j.Logger; import org.slf4j.LoggerFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.shareit.exceptions.ValidationException;
 import ru.practicum.shareit.item.dto.CommentCreateDto;
 import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
@@ -18,6 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/items")
 @RequiredArgsConstructor
+@Validated
 public class ItemController {
 
     private static final String USER_HEADER = "X-Sharer-User-Id";
@@ -26,22 +25,8 @@ public class ItemController {
 
     @PostMapping
     public ItemDto create(@RequestHeader(USER_HEADER) Long ownerId,
-                          @RequestBody ItemDto dto) {
+                          @Valid @RequestBody ItemDto dto) {
         log.debug("POST /items ownerId={}, body={}", ownerId, dto);
-
-        if (dto == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
-        if (!StringUtils.hasText(dto.getName())) {
-            throw new ValidationException("Название вещи не должно быть пустым");
-        }
-        if (!StringUtils.hasText(dto.getDescription())) {
-            throw new ValidationException("Описание вещи не должно быть пустым");
-        }
-        if (dto.getAvailable() == null) {
-            throw new ValidationException("Поле доступности вещи (available) должно быть указано");
-        }
-
         return service.create(ownerId, dto);
     }
 
@@ -62,7 +47,6 @@ public class ItemController {
     @GetMapping
     public List<ItemDto> getOwnerItems(@RequestHeader(USER_HEADER) Long ownerId) {
         log.debug("GET /items ownerId={}", ownerId);
-        // Тест мокает именно getUserItems(...), используем алиас из ItemService
         return service.getUserItems(ownerId);
     }
 

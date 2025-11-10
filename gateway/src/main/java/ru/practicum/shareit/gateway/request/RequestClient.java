@@ -1,5 +1,6 @@
 package ru.practicum.shareit.gateway.request;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.ResponseEntity;
@@ -10,11 +11,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class RequestClient extends BaseClient {
 
     public RequestClient(RestTemplateBuilder builder,
                          @Value("${shareit-server.url:http://localhost:9090}") String server) {
-        super(builder, server);
+        super(builder.build(), server);
+        log.debug("RequestClient initialized with server={}", server);
     }
 
     public ResponseEntity<String> create(Long userId, Object body) {

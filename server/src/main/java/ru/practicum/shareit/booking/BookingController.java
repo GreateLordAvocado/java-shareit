@@ -2,8 +2,7 @@ package ru.practicum.shareit.booking;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.booking.dto.BookingCreateRequest;
 import ru.practicum.shareit.booking.dto.BookingDto;
@@ -13,12 +12,12 @@ import ru.practicum.shareit.exceptions.ValidationException;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/bookings")
 public class BookingController {
 
-    private static final Logger log = LoggerFactory.getLogger(BookingController.class);
     private static final String HDR = "X-Sharer-User-Id";
 
     private final BookingService service;
@@ -27,20 +26,6 @@ public class BookingController {
     public BookingDto create(@RequestHeader(HDR) Long userId,
                              @Valid @RequestBody BookingCreateRequest dto) {
         log.debug("POST /bookings userId={}, body={}", userId, dto);
-
-        if (dto == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
-        if (dto.getItemId() == null) {
-            throw new ValidationException("Не указан itemId");
-        }
-        if (dto.getStart() == null || dto.getEnd() == null) {
-            throw new ValidationException("Должны быть указаны даты начала и конца");
-        }
-        if (!dto.getEnd().isAfter(dto.getStart())) {
-            throw new ValidationException("Дата окончания должна быть позже даты начала");
-        }
-
         return service.create(userId, dto);
     }
 
@@ -49,13 +34,7 @@ public class BookingController {
                               @PathVariable Long bookingId,
                               @RequestParam("approved") boolean approved) {
         log.debug("PATCH /bookings/{} ownerId={}, approved={}", bookingId, ownerId, approved);
-        try {
-            return service.approve(ownerId, bookingId, approved);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            String msg = (e.getMessage() == null || e.getMessage().isBlank())
-                    ? "Некорректный запрос" : e.getMessage();
-            throw new ValidationException(msg);
-        }
+        return service.approve(ownerId, bookingId, approved);
     }
 
     @GetMapping("/{bookingId}")
@@ -68,7 +47,7 @@ public class BookingController {
     @GetMapping
     public List<BookingDto> getForBooker(@RequestHeader(HDR) Long userId,
                                          @RequestParam(name = "state", required = false) String stateRaw) {
-        BookingState state = parseState(stateRaw);
+        BookingState state = parseStateOrThrow(stateRaw);
         log.debug("GET /bookings userId={}, state={}", userId, state);
         return service.findByBooker(userId, state);
     }
@@ -76,17 +55,18 @@ public class BookingController {
     @GetMapping("/owner")
     public List<BookingDto> getForOwner(@RequestHeader(HDR) Long ownerId,
                                         @RequestParam(name = "state", required = false) String stateRaw) {
-        BookingState state = parseState(stateRaw);
+        BookingState state = parseStateOrThrow(stateRaw);
         log.debug("GET /bookings/owner ownerId={}, state={}", ownerId, state);
         return service.findByOwner(ownerId, state);
     }
 
-    private static BookingState parseState(String raw) {
+    private static BookingState parseStateOrThrow(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             return BookingState.ALL;
         }
+        String normalized = raw.trim().toUpperCase();
         try {
-            return BookingState.valueOf(raw.trim().toUpperCase());
+            return BookingState.valueOf(normalized);
         } catch (IllegalArgumentException ex) {
             throw new ValidationException("Unknown state: " + raw);
         }
