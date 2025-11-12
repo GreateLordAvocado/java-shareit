@@ -12,8 +12,8 @@ public enum BookingState {
         if (raw == null || raw.trim().isEmpty()) return ALL;
         try {
             return BookingState.valueOf(raw.trim().toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Unknown state: " + raw);
+        } catch (Exception ex) {
+            return ALL;
         }
     }
 }

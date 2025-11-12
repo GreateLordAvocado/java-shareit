@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import ru.practicum.shareit.gateway.booking.dto.BookingCreateDto;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -70,14 +72,16 @@ class BookingControllerTest {
             dto.setStart(LocalDateTime.now().plusHours(1));
             dto.setEnd(LocalDateTime.now().plusHours(2));
 
+            Map<String, Object> createResp = Map.of("id", 77);
             Mockito.when(client.create(anyLong(), any()))
-                    .thenReturn(ResponseEntity.status(201).body("{\"id\":77}"));
+                    .thenReturn(ResponseEntity.status(201).body(createResp));
 
             mvc.perform(post("/bookings")
                             .header(HDR, 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(om.writeValueAsString(dto)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(77));
         }
 
         @Test
@@ -101,13 +105,16 @@ class BookingControllerTest {
         @Test
         @DisplayName("PATCH /bookings/{id}?approved=true — 200 OK")
         void approve_ok() throws Exception {
+            Map<String, Object> approveResp = Map.of("id", 1, "status", "APPROVED");
             Mockito.when(client.approve(anyLong(), anyLong(), anyBoolean()))
-                    .thenReturn(ResponseEntity.ok("{\"id\":1,\"status\":\"APPROVED\"}"));
+                    .thenReturn(ResponseEntity.ok(approveResp));
 
             mvc.perform(patch("/bookings/{id}", 5L)
                             .header(HDR, 2L)
                             .param("approved", "true"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(1))
+                    .andExpect(jsonPath("$.status").value("APPROVED"));
         }
 
         @Test
@@ -125,12 +132,14 @@ class BookingControllerTest {
         @Test
         @DisplayName("GET /bookings/{id} — 200 OK")
         void get_ok() throws Exception {
+            Map<String, Object> getResp = Map.of("id", 5);
             Mockito.when(client.getById(anyLong(), anyLong()))
-                    .thenReturn(ResponseEntity.ok("{\"id\":5}"));
+                    .thenReturn(ResponseEntity.ok(getResp));
 
             mvc.perform(get("/bookings/{bookingId}", 5L)
                             .header(HDR, 1L))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(5));
         }
 
         @Test
@@ -158,23 +167,26 @@ class BookingControllerTest {
         @DisplayName("GET /bookings — 200 OK (без state)")
         void forBooker_ok() throws Exception {
             Mockito.when(client.forBooker(anyLong(), isNull()))
-                    .thenReturn(ResponseEntity.ok("[]"));
+                    .thenReturn(ResponseEntity.ok(Collections.emptyList()));
 
             mvc.perform(get("/bookings")
                             .header(HDR, 1L))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(0));
         }
 
         @Test
         @DisplayName("GET /bookings/owner?state=WAITING — 200 OK")
         void forOwner_ok() throws Exception {
             Mockito.when(client.forOwner(anyLong(), eq("WAITING")))
-                    .thenReturn(ResponseEntity.ok("[]"));
+                    .thenReturn(ResponseEntity.ok(Collections.emptyList()));
 
             mvc.perform(get("/bookings/owner")
                             .header(HDR, 1L)
                             .param("state", "WAITING"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
         }
     }
 }

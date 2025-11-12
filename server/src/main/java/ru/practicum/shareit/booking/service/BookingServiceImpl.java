@@ -20,6 +20,7 @@ import ru.practicum.shareit.user.service.UserService;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,30 +35,6 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingDto create(Long userId, BookingCreateRequest dto) {
-        if (dto == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
-        if (dto.getItemId() == null) {
-            throw new ValidationException("Не указан itemId");
-        }
-        if (dto.getStart() == null || dto.getEnd() == null) {
-            throw new ValidationException("Должны быть указаны даты начала и конца");
-        }
-        if (!dto.getEnd().isAfter(dto.getStart())) {
-            throw new ValidationException("Дата окончания должна быть позже даты начала");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        boolean bothPast = dto.getStart().isBefore(now) && dto.getEnd().isBefore(now);
-        if (!bothPast) {
-            if (dto.getStart().isBefore(now)) {
-                throw new ValidationException("Дата начала не может быть в прошлом");
-            }
-            if (dto.getEnd().isBefore(now)) {
-                throw new ValidationException("Дата окончания не может быть в прошлом");
-            }
-        }
-
         User booker = userService.requireEntity(userId);
         Item item   = itemService.requireEntity(dto.getItemId());
 
@@ -99,12 +76,6 @@ public class BookingServiceImpl implements BookingService {
             throw new ForbiddenException("Подтверждать/отклонять может только владелец вещи");
         }
 
-        if (booking.getStatus() == BookingStatus.APPROVED && approved) {
-            throw new ValidationException("Бронирование уже подтверждено");
-        }
-        if (booking.getStatus() == BookingStatus.REJECTED && !approved) {
-            throw new ValidationException("Бронирование уже отклонено");
-        }
         if (booking.getStatus() != BookingStatus.WAITING) {
             throw new ValidationException("Статус бронирования уже изменён");
         }
@@ -119,16 +90,17 @@ public class BookingServiceImpl implements BookingService {
     public BookingDto getById(Long userId, Long bookingId) {
         userService.requireEntity(userId);
 
-        Booking booking = bookingRepo.findById(bookingId)
-                .orElseThrow(() -> new NotFoundException("Бронирование не найдено: " + bookingId));
-
-        Long ownerId = booking.getItem() != null ? booking.getItem().getOwnerId() : null;
-        Long bookerId = booking.getBooker() != null ? booking.getBooker().getId() : null;
-
-        if (!userId.equals(bookerId) && !userId.equals(ownerId)) {
-            throw new NotFoundException("Можно смотреть только своё бронирование или бронирование своей вещи");
+        Optional<Booking> maybeAsBooker = bookingRepo.findByIdAndBooker_Id(bookingId, userId);
+        if (maybeAsBooker.isPresent()) {
+            return BookingMapper.toDto(maybeAsBooker.get());
         }
-        return BookingMapper.toDto(booking);
+
+        Optional<Booking> maybeAsOwner = bookingRepo.findByIdAndItem_OwnerId(bookingId, userId);
+        if (maybeAsOwner.isPresent()) {
+            return BookingMapper.toDto(maybeAsOwner.get());
+        }
+
+        throw new NotFoundException("Можно смотреть только своё бронирование или бронирование своей вещи");
     }
 
     @Override

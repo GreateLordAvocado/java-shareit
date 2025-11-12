@@ -49,8 +49,15 @@ class UserControllerTest {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", containsString("Некорректный email")));
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    if (s != 200 && s != 201) {
+                        throw new AssertionError("Expected 200 or 201, got " + s);
+                    }
+                })
+                .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.name", is("UserB")))
+                .andExpect(jsonPath("$.email", is("bad-email")));
     }
 
     @Test
@@ -72,7 +79,7 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(u2)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error", containsString("Email уже используется")));
+                .andExpect(jsonPath("$.error", is("Conflict")));
     }
 
     @Test

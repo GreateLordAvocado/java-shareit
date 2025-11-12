@@ -32,7 +32,7 @@ public final class BookingMapper {
                 .id(b.getId())
                 .start(b.getStart())
                 .end(b.getEnd())
-                .status(b.getStatus() != null ? b.getStatus().name() : null)
+                .status(b.getStatus())
                 .item(itemShort)
                 .booker(userShort)
                 .build();

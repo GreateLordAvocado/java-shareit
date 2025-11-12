@@ -6,9 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import ru.practicum.shareit.exceptions.NotFoundException;
-import ru.practicum.shareit.exceptions.ValidationException;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.storage.ItemJpaRepository;
 import ru.practicum.shareit.request.dto.ItemRequestCreateDto;
@@ -19,7 +17,6 @@ import ru.practicum.shareit.request.storage.ItemRequestRepository;
 import ru.practicum.shareit.user.storage.UserRepository;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,12 +33,10 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         requireUser(userId);
 
         String description = dto == null ? null : dto.getDescription();
-        if (!StringUtils.hasText(description)) {
-            throw new ValidationException("Описание запроса не должно быть пустым");
+        if (description != null) {
+            description = description.trim();
         }
-        description = description.trim();
 
-        // Важно: в маппере toEntity(...) проставь created = now()
         ItemRequest toSave = ItemRequestMapper.toEntity(userId, description);
         ItemRequest saved = requestRepo.save(toSave);
 
@@ -70,15 +65,12 @@ public class ItemRequestServiceImpl implements ItemRequestService {
     public List<ItemRequestDto> getAll(Long userId, int from, int size) {
         requireUser(userId);
 
-        if (from < 0 || size <= 0) {
-            throw new ValidationException("Параметры пагинации должны быть: from >= 0 и size > 0");
-        }
-
+        // валидация параметров пагинации теперь выполняется в gateway
         Sort sort = Sort.by(Sort.Direction.DESC, "created");
         Pageable page = PageRequest.of(from / size, size, sort);
 
         List<ItemRequest> requests =
-                requestRepo.findByRequesterIdNot(userId, page).getContent(); // <-- фикс
+                requestRepo.findByRequesterIdNot(userId, page).getContent();
 
         if (requests.isEmpty()) return Collections.emptyList();
 

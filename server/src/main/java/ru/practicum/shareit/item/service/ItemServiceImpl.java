@@ -9,11 +9,7 @@ import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.storage.BookingJpaRepository;
 import ru.practicum.shareit.exceptions.NotFoundException;
 import ru.practicum.shareit.exceptions.ValidationException;
-import ru.practicum.shareit.item.dto.CommentCreateDto;
-import ru.practicum.shareit.item.dto.CommentDto;
-import ru.practicum.shareit.item.dto.CommentMapper;
-import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemMapper;
+import ru.practicum.shareit.item.dto.*;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.storage.CommentJpaRepository;
@@ -42,7 +38,6 @@ public class ItemServiceImpl implements ItemService {
     public ItemDto create(Long ownerId, ItemDto dto) {
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
-        validateForCreate(dto);
 
         if (dto.getRequestId() != null && !requestRepo.existsById(dto.getRequestId())) {
             throw new NotFoundException("Запрос не найден: " + dto.getRequestId());
@@ -60,25 +55,17 @@ public class ItemServiceImpl implements ItemService {
         userRepo.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + ownerId));
 
-        Item existing = repo.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
-
-        if (!existing.getOwnerId().equals(ownerId)) {
-            throw new NotFoundException("Редактировать вещь может только её владелец");
-        }
+        Item existing = repo.findByIdAndOwnerId(itemId, ownerId)
+                .orElseThrow(() -> new NotFoundException("Вещь не найдена или не принадлежит пользователю: " + itemId));
 
         if (patch != null) {
             if (patch.getName() != null) {
-                if (!StringUtils.hasText(patch.getName())) {
-                    throw new ValidationException("Название вещи не должно быть пустым");
-                }
-                existing.setName(patch.getName());
+                String name = patch.getName().trim();
+                existing.setName(name);
             }
             if (patch.getDescription() != null) {
-                if (!StringUtils.hasText(patch.getDescription())) {
-                    throw new ValidationException("Описание вещи не должно быть пустым");
-                }
-                existing.setDescription(patch.getDescription());
+                String desc = patch.getDescription().trim();
+                existing.setDescription(desc);
             }
             if (patch.getAvailable() != null) {
                 existing.setAvailable(patch.getAvailable());
@@ -100,15 +87,12 @@ public class ItemServiceImpl implements ItemService {
         Item item = repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
 
-        // базовые поля из сущности
         ItemDto base = ItemMapper.toDto(item);
 
-        // комментарии
         List<CommentDto> comments = commentRepo.findByItem_IdOrderByCreatedDesc(itemId).stream()
                 .map(CommentMapper::toDto)
                 .toList();
 
-        // собираем неизменяемый DTO через билдер (без сеттеров)
         return ItemDto.builder()
                 .id(base.getId())
                 .name(base.getName())
@@ -116,7 +100,7 @@ public class ItemServiceImpl implements ItemService {
                 .available(base.getAvailable())
                 .ownerId(base.getOwnerId())
                 .requestId(base.getRequestId())
-                .comments(comments) // благодаря @Singular можно передать коллекцию
+                .comments(comments)
                 .build();
     }
 
@@ -158,7 +142,6 @@ public class ItemServiceImpl implements ItemService {
                             .min(Comparator.comparing(Booking::getStart))
                             .orElse(null);
 
-                    // формируем новый DTO с нужными полями бронирований
                     return ItemDto.builder()
                             .id(base.getId())
                             .name(base.getName())
@@ -186,10 +169,6 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional
     public CommentDto addComment(Long userId, Long itemId, CommentCreateDto dto) {
-        if (dto == null || !StringUtils.hasText(dto.getText())) {
-            throw new ValidationException("Текст комментария не должен быть пустым");
-        }
-
         var author = userRepo.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + userId));
         var item = repo.findById(itemId)
@@ -203,8 +182,13 @@ public class ItemServiceImpl implements ItemService {
             throw new ValidationException("Комментировать вещь может только пользователь, который её арендовал и вернул");
         }
 
+        String text = dto.getText();
+        if (text != null) {
+            text = text.trim();
+        }
+
         Comment saved = commentRepo.save(Comment.builder()
-                .text(dto.getText().trim())
+                .text(text)
                 .item(item)
                 .author(author)
                 .created(LocalDateTime.now())
@@ -217,21 +201,6 @@ public class ItemServiceImpl implements ItemService {
     public Item requireEntity(Long itemId) {
         return repo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена: " + itemId));
-    }
-
-    private void validateForCreate(ItemDto dto) {
-        if (dto == null) {
-            throw new ValidationException("Тело запроса не должно быть пустым");
-        }
-        if (!StringUtils.hasText(dto.getName())) {
-            throw new ValidationException("Название вещи не должно быть пустым");
-        }
-        if (!StringUtils.hasText(dto.getDescription())) {
-            throw new ValidationException("Описание вещи не должно быть пустым");
-        }
-        if (dto.getAvailable() == null) {
-            throw new ValidationException("Поле доступности вещи (available) должно быть указано");
-        }
     }
 
     private static ItemDto.BookingShortDto toShort(Booking b) {

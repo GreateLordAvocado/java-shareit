@@ -22,21 +22,20 @@ public class RequestController {
     private final RequestClient client;
 
     @PostMapping
-    public ResponseEntity<String> create(@RequestHeader(HDR) Long userId,
+    public ResponseEntity<Object> create(@RequestHeader(HDR) Long userId,
                                          @Valid @RequestBody ItemRequestCreateDto dto) {
         log.debug("POST /requests by userId={}, dto={}", userId, dto);
-        // Ручная проверка описания больше не нужна — @Valid + @NotBlank на dto.description.
         return client.create(userId, dto);
     }
 
     @GetMapping
-    public ResponseEntity<String> own(@RequestHeader(HDR) Long userId) {
+    public ResponseEntity<Object> own(@RequestHeader(HDR) Long userId) {
         log.debug("GET /requests (own) by userId={}", userId);
         return client.getOwn(userId);
     }
 
     @GetMapping("/all")
-    public ResponseEntity<String> all(@RequestHeader(HDR) Long userId,
+    public ResponseEntity<Object> all(@RequestHeader(HDR) Long userId,
                                       @RequestParam(defaultValue = "0") @Min(0) int from,
                                       @RequestParam(defaultValue = "20") @Positive int size) {
         log.debug("GET /requests/all by userId={}, from={}, size={}", userId, from, size);
@@ -44,7 +43,7 @@ public class RequestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<String> byId(@RequestHeader(HDR) Long userId,
+    public ResponseEntity<Object> byId(@RequestHeader(HDR) Long userId,
                                        @PathVariable("id") Long requestId) {
         log.debug("GET /requests/{} by userId={}", requestId, userId);
         return client.getById(userId, requestId);

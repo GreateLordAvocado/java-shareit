@@ -19,27 +19,27 @@ public class ItemClient extends BaseClient {
         log.debug("ItemClient initialized with server={}", server);
     }
 
-    public ResponseEntity<String> create(Long ownerId, Object body) {
-        return post("/items", ownerId, body, String.class, null);
+    public ResponseEntity<Object> create(Long ownerId, Object body) {
+        return post("/items", ownerId, body, Object.class, null);
     }
 
-    public ResponseEntity<String> patch(Long ownerId, Long itemId, Object body) {
-        return patch("/items/" + itemId, ownerId, body, String.class, null);
+    public ResponseEntity<Object> patch(Long ownerId, Long itemId, Object body) {
+        return patch("/items/" + itemId, ownerId, body, Object.class, null);
     }
 
-    public ResponseEntity<String> getOwnerItems(Long ownerId, int from, int size) {
-        return get("/items", ownerId, String.class, Map.of("from", from, "size", size));
+    public ResponseEntity<Object> getOwnerItems(Long ownerId, int from, int size) {
+        return get("/items", ownerId, Object.class, Map.of("from", from, "size", size));
     }
 
-    public ResponseEntity<String> getById(Long userId, Long itemId) {
-        return get("/items/" + itemId, userId, String.class, null);
+    public ResponseEntity<Object> getById(Long userId, Long itemId) {
+        return get("/items/" + itemId, userId, Object.class, null);
     }
 
-    public ResponseEntity<String> search(Long userId, String text, int from, int size) {
-        return get("/items/search", userId, String.class, Map.of("text", text, "from", from, "size", size));
+    public ResponseEntity<Object> search(Long userId, String text, int from, int size) {
+        return get("/items/search", userId, Object.class, Map.of("text", text, "from", from, "size", size));
     }
 
-    public ResponseEntity<String> addComment(Long userId, Long itemId, Object body) {
-        return post("/items/" + itemId + "/comment", userId, body, String.class, null);
+    public ResponseEntity<Object> addComment(Long userId, Long itemId, Object body) {
+        return post("/items/" + itemId + "/comment", userId, body, Object.class, null);
     }
 }

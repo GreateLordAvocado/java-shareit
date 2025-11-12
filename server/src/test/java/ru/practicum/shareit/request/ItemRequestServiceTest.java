@@ -17,7 +17,6 @@ import ru.practicum.shareit.user.storage.UserRepository;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
@@ -52,9 +51,15 @@ class ItemRequestServiceTest {
     }
 
     @Test
-    @DisplayName("create(): валидация пустого описания")
-    void create_validation_error() {
-        assertThrows(RuntimeException.class, () -> service.create(requesterId, new ItemRequestCreateDto(" ")));
+    @DisplayName("create(): пробельное описание допускается (валидация на уровне gateway), описание триммится")
+    void create_allows_blank_description_and_trims() {
+        ItemRequestCreateDto dto = new ItemRequestCreateDto("   ");
+        ItemRequestDto saved = service.create(requesterId, dto);
+
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getDescription()).isEqualTo("");
+        assertThat(saved.getCreated()).isNotNull();
+        assertThat(saved.getItems()).isEmpty();
     }
 
     @Test

@@ -20,22 +20,22 @@ public class RequestClient extends BaseClient {
         log.debug("RequestClient initialized with server={}", server);
     }
 
-    public ResponseEntity<String> create(Long userId, Object body) {
-        return post("/requests", userId, body, String.class, null);
+    public ResponseEntity<Object> create(Long userId, Object body) {
+        return post("/requests", userId, body, Object.class, null);
     }
 
-    public ResponseEntity<String> getOwn(Long userId) {
-        return get("/requests", userId, String.class, null);
+    public ResponseEntity<Object> getOwn(Long userId) {
+        return get("/requests", userId, Object.class, null);
     }
 
-    public ResponseEntity<String> getAll(Long userId, Integer from, Integer size) {
+    public ResponseEntity<Object> getAll(Long userId, Integer from, Integer size) {
         Map<String, Object> params = new HashMap<>();
         if (from != null) params.put("from", from);
         if (size != null) params.put("size", size);
-        return get("/requests/all", userId, String.class, params);
+        return get("/requests/all", userId, Object.class, params);
     }
 
-    public ResponseEntity<String> getById(Long userId, Long requestId) {
-        return get("/requests/" + requestId, userId, String.class, null);
+    public ResponseEntity<Object> getById(Long userId, Long requestId) {
+        return get("/requests/" + requestId, userId, Object.class, null);
     }
 }

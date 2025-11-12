@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -33,19 +32,22 @@ class BookingControllerTest {
     private static final String HDR = "X-Sharer-User-Id";
 
     @Test
-    void create_should400_whenEndNotAfterStart() throws Exception {
+    void create_shouldPassThrough_whenEndNotAfterStart() throws Exception {
         BookingCreateRequest bad = new BookingCreateRequest();
         bad.setItemId(1L);
         bad.setStart(LocalDateTime.now().plusDays(1));
         bad.setEnd(LocalDateTime.now());
 
+        Mockito.when(service.create(eq(1L), any(BookingCreateRequest.class)))
+                .thenReturn(new BookingDto());
+
         mvc.perform(post("/bookings")
                         .header(HDR, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
 
-        Mockito.verify(service, never()).create(anyLong(), any(BookingCreateRequest.class));
+        Mockito.verify(service, times(1)).create(eq(1L), any(BookingCreateRequest.class));
     }
 
     @Test
@@ -68,13 +70,17 @@ class BookingControllerTest {
     }
 
     @Test
-    void getForBooker_should400_whenUnknownState() throws Exception {
+    void getForBooker_shouldTreatUnknownStateAsALL_andCallService() throws Exception {
+        Mockito.when(service.findByBooker(eq(1L), eq(BookingState.ALL)))
+                .thenReturn(Collections.emptyList());
+
         mvc.perform(get("/bookings")
                         .header(HDR, 1L)
                         .param("state", "WAT_IS_THAT"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
 
-        Mockito.verify(service, never()).findByBooker(anyLong(), any());
+        Mockito.verify(service, times(1)).findByBooker(1L, BookingState.ALL);
     }
 
     @Test
@@ -84,8 +90,9 @@ class BookingControllerTest {
 
         mvc.perform(get("/bookings")
                         .header(HDR, 3L)
-                        .param("state", "future")) // контроллер нормализует в FUTURE
-                .andExpect(status().isOk());
+                        .param("state", "future"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
 
         Mockito.verify(service, times(1)).findByBooker(3L, BookingState.FUTURE);
     }

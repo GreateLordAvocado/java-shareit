@@ -1,6 +1,5 @@
 package ru.practicum.shareit.booking;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -8,7 +7,6 @@ import ru.practicum.shareit.booking.dto.BookingCreateRequest;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
-import ru.practicum.shareit.exceptions.ValidationException;
 
 import java.util.List;
 
@@ -24,7 +22,7 @@ public class BookingController {
 
     @PostMapping
     public BookingDto create(@RequestHeader(HDR) Long userId,
-                             @Valid @RequestBody BookingCreateRequest dto) {
+                             @RequestBody BookingCreateRequest dto) {
         log.debug("POST /bookings userId={}, body={}", userId, dto);
         return service.create(userId, dto);
     }
@@ -47,7 +45,7 @@ public class BookingController {
     @GetMapping
     public List<BookingDto> getForBooker(@RequestHeader(HDR) Long userId,
                                          @RequestParam(name = "state", required = false) String stateRaw) {
-        BookingState state = parseStateOrThrow(stateRaw);
+        BookingState state = BookingState.from(stateRaw);
         log.debug("GET /bookings userId={}, state={}", userId, state);
         return service.findByBooker(userId, state);
     }
@@ -55,20 +53,8 @@ public class BookingController {
     @GetMapping("/owner")
     public List<BookingDto> getForOwner(@RequestHeader(HDR) Long ownerId,
                                         @RequestParam(name = "state", required = false) String stateRaw) {
-        BookingState state = parseStateOrThrow(stateRaw);
+        BookingState state = BookingState.from(stateRaw);
         log.debug("GET /bookings/owner ownerId={}, state={}", ownerId, state);
         return service.findByOwner(ownerId, state);
-    }
-
-    private static BookingState parseStateOrThrow(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return BookingState.ALL;
-        }
-        String normalized = raw.trim().toUpperCase();
-        try {
-            return BookingState.valueOf(normalized);
-        } catch (IllegalArgumentException ex) {
-            throw new ValidationException("Unknown state: " + raw);
-        }
     }
 }

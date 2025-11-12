@@ -52,7 +52,6 @@ class CommentFlowTest {
     }
 
     private long createItem(long ownerId, String name) throws Exception {
-        // Lombok @Value + @Builder + @Jacksonized для ItemDto
         var dto = ItemDto.builder()
                 .name(name)
                 .description("desc")
@@ -69,7 +68,6 @@ class CommentFlowTest {
     }
 
     private long createBooking(long bookerId, long itemId, LocalDateTime start, LocalDateTime end) throws Exception {
-        // Конструктор с аргументами у BookingCreateRequest сохранён
         var req = new BookingCreateRequest(itemId, start, end);
 
         String json = mockMvc.perform(post("/bookings")

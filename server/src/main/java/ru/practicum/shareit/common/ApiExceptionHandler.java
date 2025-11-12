@@ -1,19 +1,12 @@
 package ru.practicum.shareit.common;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.BindException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingRequestHeaderException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import ru.practicum.shareit.exceptions.ConflictException;
 import ru.practicum.shareit.exceptions.ForbiddenException;
 import ru.practicum.shareit.exceptions.NotFoundException;
@@ -27,18 +20,8 @@ import java.util.NoSuchElementException;
 public class ApiExceptionHandler {
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler({
-            ValidationException.class,
-            MethodArgumentNotValidException.class,
-            BindException.class,
-            HttpMessageNotReadableException.class,
-            MissingServletRequestParameterException.class,
-            MissingRequestHeaderException.class,
-            MethodArgumentTypeMismatchException.class,
-            ConstraintViolationException.class,
-            IllegalArgumentException.class
-    })
-    public Map<String, Object> handleBadRequest(Exception ex, HttpServletRequest req) {
+    @ExceptionHandler(ValidationException.class)
+    public Map<String, Object> handleValidation(ValidationException ex, HttpServletRequest req) {
         log.debug("400 {} {}", req.getRequestURI(), ex.getMessage());
         return Map.of("error", ex.getMessage());
     }
@@ -51,17 +34,14 @@ public class ApiExceptionHandler {
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    @ExceptionHandler({
-            NotFoundException.class,
-            NoSuchElementException.class
-    })
+    @ExceptionHandler({ NotFoundException.class, NoSuchElementException.class })
     public Map<String, Object> handleNotFound(Exception ex, HttpServletRequest req) {
         log.debug("404 {} {}", req.getRequestURI(), ex.getMessage());
         return Map.of("error", ex.getMessage());
     }
 
     @ResponseStatus(HttpStatus.CONFLICT)
-    @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class})
+    @ExceptionHandler({ ConflictException.class, DataIntegrityViolationException.class })
     public Map<String, Object> handleConflict(Exception ex, HttpServletRequest req) {
         log.debug("409 {} {}", req.getRequestURI(), ex.getMessage());
         String message = (ex instanceof DataIntegrityViolationException)

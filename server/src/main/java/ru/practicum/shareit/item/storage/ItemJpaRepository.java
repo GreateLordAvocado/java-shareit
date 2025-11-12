@@ -7,6 +7,7 @@ import ru.practicum.shareit.item.model.Item;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ItemJpaRepository extends JpaRepository<Item, Long> {
 
@@ -32,4 +33,6 @@ public interface ItemJpaRepository extends JpaRepository<Item, Long> {
     default List<Item> findByRequestId(Long requestId) {
         return findByRequestIdOrderByIdAsc(requestId);
     }
+
+    Optional<Item> findByIdAndOwnerId(Long id, Long ownerId);
 }

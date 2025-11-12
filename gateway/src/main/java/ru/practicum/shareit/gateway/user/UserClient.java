@@ -17,28 +17,28 @@ public class UserClient extends BaseClient {
         log.debug("UserClient initialized with server={}", server);
     }
 
-    public ResponseEntity<String> create(Object body) {
+    public ResponseEntity<Object> create(Object body) {
         log.debug("Creating user with body={}", body);
-        return post("/users", null, body, String.class, null);
+        return post("/users", null, body, Object.class, null);
     }
 
-    public ResponseEntity<String> patch(Long id, Object body) {
+    public ResponseEntity<Object> patch(Long id, Object body) {
         log.debug("Patching user id={} with body={}", id, body);
-        return patch("/users/" + id, null, body, String.class, null);
+        return patch("/users/" + id, null, body, Object.class, null);
     }
 
-    public ResponseEntity<String> getAll() {
+    public ResponseEntity<Object> getAll() {
         log.debug("Fetching all users");
-        return get("/users", null, String.class, null);
+        return get("/users", null, Object.class, null);
     }
 
-    public ResponseEntity<String> getById(Long id) {
+    public ResponseEntity<Object> getById(Long id) {
         log.debug("Fetching user by id={}", id);
-        return get("/users/" + id, null, String.class, null);
+        return get("/users/" + id, null, Object.class, null);
     }
 
-    public ResponseEntity<String> delete(Long id) {
+    public ResponseEntity<Object> delete(Long id) {
         log.debug("Deleting user id={}", id);
-        return delete("/users/" + id, null, String.class, null);
+        return delete("/users/" + id, null, Object.class, null);
     }
 }

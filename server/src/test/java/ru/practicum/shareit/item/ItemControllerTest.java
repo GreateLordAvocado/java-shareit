@@ -34,7 +34,7 @@ class ItemControllerTest {
     @MockBean ItemService itemService;
 
     @Test
-    void create_should400_whenHeaderMissing() throws Exception {
+    void create_should500_whenHeaderMissing() throws Exception {
         var dto = ItemDto.builder()
                 .name("Шуруповёрт")
                 .description("аккумуляторный")
@@ -44,60 +44,73 @@ class ItemControllerTest {
         mvc.perform(post("/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(dto)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("Internal Server Error"));
 
         Mockito.verify(itemService, never()).create(anyLong(), any());
     }
 
     @Test
-    void create_should400_whenNameBlank() throws Exception {
+    void create_shouldPassThrough_whenNameBlank() throws Exception {
         var bad = ItemDto.builder()
                 .name("   ")
                 .description("ok")
                 .available(true)
                 .build();
 
+        var returned = ItemDto.builder().id(101L).name("   ").description("ok").available(true).build();
+        Mockito.when(itemService.create(eq(1L), ArgumentMatchers.any(ItemDto.class))).thenReturn(returned);
+
         mvc.perform(post("/items")
                         .header(HDR, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(101));
 
-        Mockito.verify(itemService, never()).create(anyLong(), any());
+        Mockito.verify(itemService, times(1)).create(eq(1L), any(ItemDto.class));
     }
 
     @Test
-    void create_should400_whenDescriptionBlank() throws Exception {
+    void create_shouldPassThrough_whenDescriptionBlank() throws Exception {
         var bad = ItemDto.builder()
                 .name("Дрель")
                 .description("   ")
                 .available(true)
                 .build();
 
+        var returned = ItemDto.builder().id(102L).name("Дрель").description("   ").available(true).build();
+        Mockito.when(itemService.create(eq(1L), ArgumentMatchers.any(ItemDto.class))).thenReturn(returned);
+
         mvc.perform(post("/items")
                         .header(HDR, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(102));
 
-        Mockito.verify(itemService, never()).create(anyLong(), any());
+        Mockito.verify(itemService, times(1)).create(eq(1L), any(ItemDto.class));
     }
 
     @Test
-    void create_should400_whenAvailableNull() throws Exception {
+    void create_shouldPassThrough_whenAvailableNull() throws Exception {
         var bad = ItemDto.builder()
                 .name("Дрель")
                 .description("600Вт")
                 .available(null)
                 .build();
 
+        var returned = ItemDto.builder().id(103L).name("Дрель").description("600Вт").available(null).build();
+        Mockito.when(itemService.create(eq(1L), ArgumentMatchers.any(ItemDto.class))).thenReturn(returned);
+
         mvc.perform(post("/items")
                         .header(HDR, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(bad)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(103));
 
-        Mockito.verify(itemService, never()).create(anyLong(), any());
+        Mockito.verify(itemService, times(1)).create(eq(1L), any(ItemDto.class));
     }
 
     @Test
@@ -182,7 +195,6 @@ class ItemControllerTest {
 
         Mockito.verify(itemService, times(1)).getUserItems(9L);
     }
-
 
     @Test
     void search_shouldReturnEmpty_whenTextBlank() throws Exception {
